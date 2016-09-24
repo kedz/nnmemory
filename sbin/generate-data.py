@@ -74,7 +74,7 @@ def generate_data(num_topics, alpha, beta, lam1, lam2,
         train_size, test_size, output_dir, seed):
 
     if output_dir != "" and not os.path.exists(output_dir):
-        os.path.makedirs(output_dir)
+        os.makedirs(output_dir)
 
     np.random.seed(seed)
 
