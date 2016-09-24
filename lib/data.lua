@@ -21,7 +21,7 @@ function data.readVocab(path, includeSpecial)
             id = id + 1
         end
     end   
-    return {id2token=id2token, token2id=token2id, size=table.getn(id2token)}
+    return {id2token=id2token, token2id=token2id, size=#id2token}
 
 end
 
