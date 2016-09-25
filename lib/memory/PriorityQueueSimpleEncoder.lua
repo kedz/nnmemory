@@ -10,6 +10,19 @@ function PriorityQueueSimpleEncoder:__init(dimSize)
     self.bias = torch.Tensor(1)    
     self.gradBias = torch.Tensor(1)    
 
+    self.pi = torch.Tensor()
+    self.Zbuffer = torch.Tensor()
+    self.Ibuffer = torch.Tensor()
+    self.Jbuffer = torch.Tensor()
+    self.indices = torch.LongTensor()
+    self.pi_sorted = torch.Tensor()
+    self.M_sorted = torch.Tensor()
+
+    self.grad_o_wrt_sm_buf = torch.Tensor()
+    self.grad_input_unsorted = torch.Tensor()
+    self.grad_buffer1 = torch.Tensor()
+    self.gradInput = torch.Tensor()
+
     self.isMaskZero = false
     
     self:reset()
@@ -44,7 +57,7 @@ function PriorityQueueSimpleEncoder:updateOutput(input)
 
     local W = self.weight:view(1,d,1):expand(batchSize, d, 1)
     local b = self.bias:view(1,1,1):expand(batchSize, 1, 1)
-    local pi = torch.Tensor():resize(maxSteps, batchSize, 1):typeAs(b):zero()
+    local pi = self.pi:resize(maxSteps, batchSize, 1):zero()
 
     local X = input:view(maxSteps, batchSize, 1, d)
 
@@ -67,18 +80,17 @@ function PriorityQueueSimpleEncoder:updateOutput(input)
     end
 
     torch.exp(pi, pi)
-    torch.cdiv(pi, pi, torch.sum(pi, 1):expand(maxSteps,batchSize))
+    torch.cdiv(pi, pi, torch.sum(self.Zbuffer, pi, 1):expand(maxSteps,batchSize))
     
-    local pi_sorted, I = torch.sort(pi, 1, true)
-    local memory_sorted = torch.Tensor():resizeAs(input):typeAs(input):zero()
+    local pi_sorted, indices = torch.sort(self.pi_sorted, self.indices, pi, 1, true)
+    local memory_sorted = self.M_sorted:resizeAs(input):typeAs(input):zero()
 
     for t=1,maxSteps do
         for b=1,batchSize do
-            memory_sorted[t][b]:copy(input[I[t][b]][b])    
+            memory_sorted[t][b]:copy(input[indices[t][b]][b])    
         end
     end
 
-    self.indices = I
     self.output = {memory_sorted, pi_sorted}
     return self.output
 end
@@ -95,29 +107,56 @@ function PriorityQueueSimpleEncoder:updateGradInput(input, gradOutput)
     local batchSize = input:size(2)
     local W = self.weight:view(1,1,d):expand(batchSize,1,d)
     local I = 
-        torch.eye(maxSteps):view(maxSteps, maxSteps, 1):expand(
+        torch.eye(self.Ibuffer, maxSteps):view(maxSteps, maxSteps, 1):expand(
             maxSteps, maxSteps, batchSize)
-    local J = torch.cmul(
-        pi:view(maxSteps,1,batchSize):expand(maxSteps,maxSteps,batchSize),
-        I - pi:view(1,maxSteps,batchSize):expand(maxSteps,maxSteps,batchSize))
+
+    -- compute jacobian of softmax
+    local J = torch.csub(
+        self.Jbuffer, I, 
+        pi:view(1,maxSteps,batchSize):expand(maxSteps,maxSteps,batchSize))
+    J = torch.cmul(
+        J, J,
+        pi:view(maxSteps,1,batchSize):expand(maxSteps,maxSteps,batchSize))
     J = J:permute(3,1,2)
+
     local grad_pi = gradOutput[2]:permute(2,1):contiguous()
+
+    --local grad_pi = grad_pi:view(maxSteps, batchSize, 1):permute(2,1,3)
     local grad_pi = grad_pi:view(batchSize,maxSteps,1)
-    local grad_o_wrt_sm = torch.bmm(J, grad_pi)
-    
-    self.grad_input = torch.bmm(grad_o_wrt_sm, W):permute(2,1,3)
-    self.grad_input = self.grad_input + grad_M
 
-    self.gradBias:copy(grad_o_wrt_sm:sum(1):sum(2):view(1))
+    -- For some reason batch matrix multiply won't resize storage automatically?
+    self.grad_o_wrt_sm_buf = self.grad_o_wrt_sm_buf:resize(batchSize, maxSteps, 1)
+    local grad_o_wrt_sm = torch.bmm(
+        self.grad_o_wrt_sm_buf,
+        J, 
+        grad_pi)
     
-    self.gradWeight:copy(torch.bmm(M:view(maxSteps,batchSize,d):permute(2,3,1), grad_o_wrt_sm):sum(1):view(d))
+    -- For some reason batch matrix multiply won't resize storage automatically?
+    self.grad_input_unsorted = 
+        self.grad_input_unsorted:resize(batchSize, maxSteps, d)
+    self.grad_input_unsorted = torch.bmm(
+        self.grad_input_unsorted, 
+        grad_o_wrt_sm, 
+        W):permute(2,1,3)
+    self.grad_input_unsorted:add(grad_M)
 
-    local gradInputSorted = torch.Tensor():resizeAs(M):typeAs(M):zero()
+    torch.sum(self.grad_buffer1, grad_o_wrt_sm, 1)
+    torch.sum(self.gradBias:view(1,1,1), self.grad_buffer1, 2)
+    
+    -- For some reason batch matrix multiply won't resize storage automatically?
+    self.grad_buffer1 = self.grad_buffer1:resize(batchSize, d, 1)
+    torch.bmm(
+        self.grad_buffer1,
+        M:permute(2,3,1), 
+        grad_o_wrt_sm)
+    torch.sum(self.gradWeight:view(1,d,1), self.grad_buffer1, 1)    
+
+    local gradInput = self.gradInput:resizeAs(M):zero()
 
     for i=1,maxSteps do
         for b=1,batchSize do
-            gradInputSorted[self.indices[i][b]][b]:copy(self.grad_input[i][b])
+            gradInput[self.indices[i][b]][b]:copy(self.grad_input_unsorted[i][b])
         end
     end
-    return gradInputSorted
+    return gradInput
 end
