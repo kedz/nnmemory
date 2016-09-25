@@ -162,10 +162,5 @@ function PriorityQueueSimpleEncoder:updateGradInput(input, gradOutput)
     for b=1,batchSize do
         gradInput:select(2,b):index(self.grad_input_unsorted:select(2,b), 1, inverse_indices:select(2,b))
     end
---    for i=1,maxSteps do
---        for b=1,batchSize do
---            gradInput[self.indices[i][b]][b]:copy(self.grad_input_unsorted[i][b])
---        end
---    end
     return gradInput
 end
