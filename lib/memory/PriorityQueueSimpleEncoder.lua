@@ -15,6 +15,7 @@ function PriorityQueueSimpleEncoder:__init(dimSize)
     self.Ibuffer = torch.Tensor()
     self.Jbuffer = torch.Tensor()
     self.indices = torch.LongTensor()
+    self.inverse_indices = torch.LongTensor()
     self.pi_sorted = torch.Tensor()
     self.M_sorted = torch.Tensor()
 
@@ -85,10 +86,8 @@ function PriorityQueueSimpleEncoder:updateOutput(input)
     local pi_sorted, indices = torch.sort(self.pi_sorted, self.indices, pi, 1, true)
     local memory_sorted = self.M_sorted:resizeAs(input):typeAs(input):zero()
 
-    for t=1,maxSteps do
-        for b=1,batchSize do
-            memory_sorted[t][b]:copy(input[indices[t][b]][b])    
-        end
+    for b=1,batchSize do
+        memory_sorted:select(2,b):index(input:select(2,b), 1, indices:select(2,b))
     end
 
     self.output = {memory_sorted, pi_sorted}
@@ -153,10 +152,20 @@ function PriorityQueueSimpleEncoder:updateGradInput(input, gradOutput)
 
     local gradInput = self.gradInput:resizeAs(M):zero()
 
+    local inverse_indices = self.inverse_indices:resizeAs(self.indices)
     for i=1,maxSteps do
         for b=1,batchSize do
-            gradInput[self.indices[i][b]][b]:copy(self.grad_input_unsorted[i][b])
+            inverse_indices[self.indices[i][b]][b] = i
         end
     end
+
+    for b=1,batchSize do
+        gradInput:select(2,b):index(self.grad_input_unsorted:select(2,b), 1, inverse_indices:select(2,b))
+    end
+--    for i=1,maxSteps do
+--        for b=1,batchSize do
+--            gradInput[self.indices[i][b]][b]:copy(self.grad_input_unsorted[i][b])
+--        end
+--    end
     return gradInput
 end
