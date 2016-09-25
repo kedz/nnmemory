@@ -25,9 +25,34 @@ function PriorityQueueSimpleEncoder:__init(dimSize)
     self.gradInput = torch.Tensor()
 
     self.isMaskZero = false
+    self.isCuda = false
     
     self:reset()
 
+end
+
+function PriorityQueueSimpleEncoder:cuda()
+    Parent.cuda(self)
+    self.indices = torch.CudaLongTensor()
+    self.inverse_indices = torch.CudaLongTensor()
+    self.isCuda = true
+    return self
+end
+
+function PriorityQueueSimpleEncoder:float()
+    Parent.float(self)
+    self.indices = torch.LongTensor()
+    self.inverse_indices = torch.LongTensor()
+    self.isCuda = false
+    return self
+end
+
+function PriorityQueueSimpleEncoder:double()
+    Parent.double(self)
+    self.indices = torch.LongTensor()
+    self.inverse_indices = torch.LongTensor()
+    self.isCuda = false
+    return self
 end
 
 function PriorityQueueSimpleEncoder:maskZero()
@@ -80,14 +105,25 @@ function PriorityQueueSimpleEncoder:updateOutput(input)
         end
     end
 
+    -- softmax over time
     torch.exp(pi, pi)
-    torch.cdiv(pi, pi, torch.sum(self.Zbuffer, pi, 1):expand(maxSteps,batchSize))
+    torch.cdiv(
+        pi, 
+        pi, 
+        torch.sum(self.Zbuffer, pi, 1):expand(maxSteps,batchSize))
     
-    local pi_sorted, indices = torch.sort(self.pi_sorted, self.indices, pi, 1, true)
+    -- sort priorities
+    local pi_sorted, indices = torch.sort(
+        self.pi_sorted, 
+        self.indices, 
+        pi, 1, true)
+        
+    -- sort memory (base on priority)
     local memory_sorted = self.M_sorted:resizeAs(input):typeAs(input):zero()
 
     for b=1,batchSize do
-        memory_sorted:select(2,b):index(input:select(2,b), 1, indices:select(2,b))
+        memory_sorted:select(2,b):index(
+            input:select(2,b), 1, indices:select(2,b))
     end
 
     self.output = {memory_sorted, pi_sorted}
@@ -105,9 +141,22 @@ function PriorityQueueSimpleEncoder:updateGradInput(input, gradOutput)
     local maxSteps = input:size(1)
     local batchSize = input:size(2)
     local W = self.weight:view(1,1,d):expand(batchSize,1,d)
-    local I = 
-        torch.eye(self.Ibuffer, maxSteps):view(maxSteps, maxSteps, 1):expand(
-            maxSteps, maxSteps, batchSize)
+
+    local I 
+    if self.isCuda then
+        if self.Ibuffer:nElement() < maxSteps * maxSteps then
+            self.Ibuffer = self.Ibuffer:resize(maxSteps, maxSteps,1):zero()
+            for i=1,maxSteps do
+                self.Ibuffer[i][i][1] = 1
+            end
+        end 
+
+        I = self.Ibuffer[{{1,maxSteps}, {1,maxSteps},{}}]:expand(
+                maxSteps, maxSteps, batchSize)
+    else
+        I = torch.eye(self.Ibuffer, maxSteps):view(
+            maxSteps, maxSteps, 1):expand(maxSteps, maxSteps, batchSize)
+    end
 
     -- compute jacobian of softmax
     local J = torch.csub(
