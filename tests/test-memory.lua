@@ -190,7 +190,7 @@ function pqtests.PriorityQueueSimpleEncoderTestMaskedInput()
                    torch.ne(Ylong[2], 0):double()}
     torch.cmul(Glong[1], Glong[1], randomMemGrad)
     torch.cmul(Glong[2], Glong[2], randomPiGrad)
-    local gradInputLong = qenc:updateGradInput(Xlong, Glong)
+    local gradInputLong = qenc:updateGradInput(Xlong, Glong):clone()
     local gradWeightLong = 
         torch.Tensor():resizeAs(qenc.gradWeight):copy(qenc.gradWeight)
     local gradBiasLong = 
@@ -205,7 +205,7 @@ function pqtests.PriorityQueueSimpleEncoderTestMaskedInput()
     torch.cmul(Gshort[1], Gshort[1], randomMemGrad[{{1,3},{},{}}])
     torch.cmul(Gshort[2], Gshort[2], randomPiGrad[{{1,3},{}}])
 
-    local gradInputShort = qenc:updateGradInput(Xshort, Gshort)
+    local gradInputShort = qenc:updateGradInput(Xshort, Gshort):clone()
     local gradWeightShort = 
         torch.Tensor():resizeAs(qenc.gradWeight):copy(qenc.gradWeight)
     local gradBiasShort = 
