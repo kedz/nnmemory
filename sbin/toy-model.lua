@@ -13,12 +13,29 @@ Options:
    --max-epochs     (default 20) max number of epochs to run for
    --seed           (default 1)     seed for torch random number generator
    --progress-bar    show progress bar
+   --gpu (default 0) which gpu to use. 0 means cpu
 ]]
 
 -- require torch packages
 require 'nn'
 require 'rnn'
 require 'optim'
+
+local use_GPU = false
+if opt.gpu > 0 then use_GPU = true end
+
+if use_GPU then
+    require 'cutorch'
+    require 'cunn'
+    cutorch.setDevice(opt.gpu)
+    cutorch.manualSeed(opt.seed)
+    torch.manualSeed(opt.seed)
+    print("running on gpu-" .. opt.gpu)
+
+else
+    torch.manualSeed(opt.seed)
+    print("running on cpu")
+end
 
 -- require my packages
 require 'data'
@@ -37,6 +54,8 @@ optimState = {learningRate=opt.learning_rate}
 local model = nn.PriorityQueueNetwork(inputVocab.size, outputVocab.size, 
     opt.dim_size, optimState) 
 
+if use_GPU then model:cuda() end
+
 local trainingTimes = {}
 local testTimes = {}
 local testTimesLarge = {}
@@ -48,7 +67,7 @@ for epoch=1,opt.max_epochs do
 
     local trainLoss = 0
     local startTrain = os.clock()
-    for batch in data.batches(trainData, opt.batch_size) do 
+    for batch in data.batches(trainData, opt.batch_size, use_GPU) do 
         if opt.progress_bar then
             xlua.progress(batch.position, trainData.sizeExamples)
         end
@@ -66,7 +85,7 @@ for epoch=1,opt.max_epochs do
 
     local testLoss = 0
     local startTest = os.clock()
-    for batch in data.batches(testData, opt.batch_size) do 
+    for batch in data.batches(testData, opt.batch_size, use_GPU) do 
         if opt.progress_bar then
             xlua.progress(batch.position, testData.sizeExamples)
         end
@@ -84,7 +103,7 @@ for epoch=1,opt.max_epochs do
 
     local testLossLarge = 0
     local startTestLarge = os.clock()
-    for batch in data.batches(testDataLarge, opt.batch_size) do 
+    for batch in data.batches(testDataLarge, opt.batch_size, use_GPU) do 
         if opt.progress_bar then
             xlua.progress(batch.position, testDataLarge.sizeExamples)
         end
