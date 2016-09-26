@@ -76,7 +76,15 @@ function PriorityQueueSimpleEncoder:updateOutput(input)
         "Input must be a batch of dim seqLength x batch size x dim size")
     assert(input:size(3) == self.dimSize, 
         "Input must have dimension dimSize")
-
+    local isCuda = false
+    if input:type() == "torch.CudaTensor" then
+        isCuda = true
+        if self.indices:type() ~= "torch.CudaLongTensor" then
+            self.indices = self.indices:type("torch.CudaLongTensor")
+            self.inverse_indices = self.inverse_indices:type(
+                "torch.CudaLongTensor")
+        end
+    end
     local d = self.dimSize
     local maxSteps = input:size(1)
     local batchSize = input:size(2)
@@ -96,7 +104,12 @@ function PriorityQueueSimpleEncoder:updateOutput(input)
     pi = pi:view(maxSteps,batchSize)
 
     if self.isMaskZero then
-        local mask = torch.eq(input[{{},{},{1}}], 0):nonzero()
+        local mask
+        if  isCuda then
+            mask = torch.eq(input[{{},{},{1}}], 0):long():nonzero()
+        else
+            mask = torch.eq(input[{{},{},{1}}], 0):nonzero()
+        end
         if mask:dim() > 0 then 
             mask = mask[{{},{1,2}}]
             for m=1,mask:size(1) do
@@ -132,6 +145,10 @@ end
 
 function PriorityQueueSimpleEncoder:updateGradInput(input, gradOutput)
 
+    local isCuda = false
+    if input:type() == "torch.CudaTensor" then
+        isCuda = true
+    end
     local d = self.dimSize
 
     local grad_M = gradOutput[1]
@@ -143,7 +160,7 @@ function PriorityQueueSimpleEncoder:updateGradInput(input, gradOutput)
     local W = self.weight:view(1,1,d):expand(batchSize,1,d)
 
     local I 
-    if self.isCuda then
+    if isCuda then
         if self.Ibuffer:nElement() < maxSteps * maxSteps then
             self.Ibuffer = self.Ibuffer:resize(maxSteps, maxSteps,1):zero()
             for i=1,maxSteps do
