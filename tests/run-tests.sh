@@ -1,0 +1,4 @@
+th test.PriorityQueueSimpleEncoderCuda.lua
+th test.PriorityQueueSimpleDecoderCuda.lua
+th test.PriorityQueueSimpleEncoder.lua
+th test.PriorityQueueSimpleDecoder.lua
