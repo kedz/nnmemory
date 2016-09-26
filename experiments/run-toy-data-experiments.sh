@@ -15,7 +15,7 @@ OUTPUT_VOCAB=toy-data/toy.token.vocab.txt
 TRAIN_PATH=toy-data/train.toy.lam35.0.txt
 TEST_PATH=toy-data/test.toy.lam35.0.txt
 TEST_PATH_LARGE=toy-data/test.toy.lam70.0.txt
-BATCH_SIZE=25
+BATCH_SIZE=500
 DIM_SIZE=64
 MAX_EPOCHS=10
 
@@ -29,6 +29,19 @@ python sbin/generate-data.py --topics $TOPICS \
     --train-size $TRAINSIZE --test-size $TESTSIZE --seed $SEED \
     --output-dir toy-data/ &> toy-data-logs/datagen.${LOGTIME}.log
 
+echo "Training Coupled LSTM Encoder Decoder"
+th sbin/lstm-toy-model.lua \
+    --input-vocab $INPUT_VOCAB \
+    --output-vocab $OUTPUT_VOCAB \
+    --train-path $TRAIN_PATH \
+    --test-path $TEST_PATH \
+    --test-path-large $TEST_PATH_LARGE \
+    --batch-size $BATCH_SIZE \
+    --dim-size $DIM_SIZE \
+    --max-epochs $MAX_EPOCHS \
+    --gpu 1 \
+    &> toy-data-logs/train.coupled.lstm.${LOGTIME}.log
+
 echo "Training Priority Queue (Simple Encoder/Decoder)..."
 th sbin/toy-model.lua \
     --input-vocab $INPUT_VOCAB \
@@ -39,4 +52,7 @@ th sbin/toy-model.lua \
     --batch-size $BATCH_SIZE \
     --dim-size $DIM_SIZE \
     --max-epochs $MAX_EPOCHS \
+    --gpu 0 \
     &> toy-data-logs/train.pq.simpleenc.simpledec.${LOGTIME}.log
+
+
