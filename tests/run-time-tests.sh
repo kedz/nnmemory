@@ -1,2 +1,3 @@
 export OMP_NUM_THREADS=1
-th time.PriorityQueueSimpleEncoder.lua
+th time.PriorityQueueSimpleDecoder.lua
+#th time.PriorityQueueSimpleEncoder.lua
