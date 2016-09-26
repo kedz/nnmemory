@@ -11,4 +11,4 @@ SEED=486777769
 python ../sbin/generate-data.py --topics $TOPICS \
     --alpha $ALPHA --beta $BETA --lam1 $LAMBDA1 --lam2 $LAMBDA2 \
     --train-size $TRAINSIZE --test-size $TESTSIZE --seed $SEED \
-    --output-dir ../data/
+    --output-dir ../toy-data/
