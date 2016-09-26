@@ -1,12 +1,9 @@
 require 'nn'
 require 'cunn'
-
 require 'memory'
 
 local tester = torch.Tester()
-
-local tolerance = 1e-7
-
+local tolerance = 1e-6
 local pqtests = torch.TestSuite()
 
 function pqtests.PriorityQueueSimpleEncoderTestForwardBackward()
