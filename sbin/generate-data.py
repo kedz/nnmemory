@@ -47,7 +47,7 @@ def generate_part(num_topics, vocab, word_dist, topic_trans_dists, lam, size,
             wc[word] += 1
 
             for step in range(size-1):
-                topic = draw_topic(topic)
+                topic = np.random.randint(0,num_topics, 1)[0]
                 word = draw_word(topic)
                 topics.append(topic)
                 words.append(word)
