@@ -84,15 +84,22 @@ function data.readData(path, inputVocab, outputVocab, readTopics)
             sizePredictions=totalOutputSize}
 end
 
-function data.batches(dataset, batchSize)
+function data.batches(dataset, batchSize, isGPU)
     
     local X = dataset.encoderInput
     local Yin = dataset.decoderInput
     local Yout = dataset.decoderOutput
-    local batchX = torch.LongTensor(batchSize, X:size(2)):zero()
+    
 
+    local batchX = torch.LongTensor(batchSize, X:size(2)):zero()
     local batchYin = torch.LongTensor(batchSize, Yin:size(2)):zero()
     local batchYout = torch.LongTensor(batchSize, Yout:size(2)):zero()
+
+    if isGPU then
+        batchX = batchX:cuda()
+        batchYin = batchYin:cuda()
+        batchYout = batchYout:cuda()
+    end
 
     local i=1
 
