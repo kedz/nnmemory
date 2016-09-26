@@ -33,24 +33,19 @@ function PriorityQueueSimpleDecoder:__init(inputSize)
     self.grad_Y = torch.Tensor()
     self.grad_M = torch.Tensor()
 
+
+    self.grad_r = torch.Tensor()
+    self.grad_f = torch.Tensor()
+
+    self.grad_h_tp1_wrt_h_t = torch.Tensor()
+    self.grad_pi_tp1 = torch.Tensor()
+
     self.buffer1 = torch.Tensor()
     self.buffer2 = torch.Tensor()
     self.buffer3 = torch.Tensor()
     self.buffer4 = torch.Tensor()
     self.buffer5 = torch.Tensor()
-    self.buffer6 = torch.Tensor()
-    self.buffer7 = torch.Tensor()
-    self.buffer8 = torch.Tensor()
-    self.buffer9 = torch.Tensor()
-    self.buffer10 = torch.Tensor()
-    self.buffer11 = torch.Tensor()
-    self.buffer12 = torch.Tensor()
-    self.buffer13 = torch.Tensor()
-    self.buffer14 = torch.Tensor()
-    self.buffer15 = torch.Tensor()
-    self.buffer16 = torch.Tensor()
-    self.buffer17 = torch.Tensor()
-
+   
     self.isMaskZero = false
 
     self:reset()
@@ -73,9 +68,43 @@ function PriorityQueueSimpleDecoder:reset()
 
 end
 
+function PriorityQueueSimpleDecoder:zeroGradParameters()
+    self.grad_read_in:zero()
+    self.grad_read_h:zero()
+    self.grad_read_b:zero()
+    self.grad_forget_in:zero()
+    self.grad_forget_h:zero()
+    self.grad_forget_b:zero()
+    self.grad_Y:zero()
+end
+
+function PriorityQueueSimpleDecoder:parameters()
+
+    local params = {self.weight_read_in,
+                    self.weight_read_h,
+                    self.weight_read_b,
+                    self.weight_forget_in,
+                    self.weight_forget_h,
+                    self.weight_forget_b
+                   }
+    local gradParams = {self.grad_read_in,
+                        self.grad_read_h,
+                        self.grad_read_b,
+                        self.grad_forget_in,
+                        self.grad_forget_h,
+                        self.grad_forget_b
+                       }
+    return params, gradParams
+end
+
 
 function PriorityQueueSimpleDecoder:updateOutput(input)
     
+    local isCuda = false
+    if input[1]:type() == "torch.CudaTensor" then
+        isCuda = true
+    end
+
     local M, P_0, input_seq = unpack(input)
     local Tmem = M:size(1)
     local Tdec = input_seq:size(1)
@@ -122,21 +151,24 @@ function PriorityQueueSimpleDecoder:updateOutput(input)
 
         -- Compute remember value at step t        
         -- sigmoid(W_r_in * Y_t + W_r_h * h_tm1 + b_r)
-        torch.bmm(Rt, W_r_in, yt)
-        torch.add(Rt, Rt, torch.bmm(W_r_h, htm1))
-        --torch.baddbmm(r[t], r[t], W_r_h, htm1)
-        Rt:add(b_r)
+        torch.baddbmm(Rt, b_r, W_r_in, yt)
+        torch.baddbmm(Rt, Rt, W_r_h, htm1)
         torch.sigmoid(Rt, Rt)
         
         -- Compute forget value at step t        
         -- sigmoid(W_f_in * Y_t + W_f_h * h_tm1 + b_f)
-        torch.bmm(Ft, W_f_in, yt)
-        torch.add(Ft, Ft, torch.bmm(W_f_h, htm1))
-        Ft:add(b_f)
+        torch.baddbmm(Ft, b_f, W_f_in, yt)
+        torch.baddbmm(Ft, Ft, W_f_h, htm1)
         torch.sigmoid(Ft, Ft)
         
         if self.isMaskZero then
-            local mask = torch.eq(yt[{{},{1},{1}}], 0):nonzero()
+
+            local mask
+            if isCuda then
+                mask = torch.eq(yt[{{},{1},{1}}], 0):long():nonzero()
+            else
+                mask = torch.eq(yt[{{},{1},{1}}], 0):nonzero()
+            end
             if mask:dim() > 0 then
                 for m=1,mask:size(1) do
                     Ft[mask[m][1]]:fill(0)
@@ -167,7 +199,7 @@ function PriorityQueueSimpleDecoder:updateOutput(input)
         torch.cmin(phi_t, Pt, phicum_t)
        
         if t+1 <= Tdec then
-           P[t+1]:copy(Pt - phi_t) 
+           torch.csub(P[t+1], Pt, phi_t) 
         end
 
         torch.cmul(self.buffer1, rho_t:view(Tmem,B,1):expand(Tmem,B,D), M)
@@ -185,20 +217,6 @@ function PriorityQueueSimpleDecoder:updateGradInput(input, gradOutput)
     local B = input_seq:size(2)
     local D = self.D
 
-    local grad_W_ry = 
-        torch.Tensor():resizeAs(input_seq):typeAs(input_seq):zero()
-    local grad_W_rh =
-        torch.Tensor():resizeAs(input_seq):typeAs(input_seq):zero()
-    local grad_b_r =
-        torch.Tensor():resize(Tdec,B,1):typeAs(input_seq):zero()
-
-    local grad_W_fy = 
-        torch.Tensor():resizeAs(input_seq):typeAs(input_seq):zero()
-    local grad_W_fh = 
-        torch.Tensor():resizeAs(input_seq):typeAs(input_seq):zero()
-    local grad_b_f =
-        torch.Tensor():resize(Tdec,B,1):typeAs(input_seq):zero()
-
     local grad_Y = self.grad_Y:resizeAs(input_seq):zero()
     local grad_M = self.grad_M:resizeAs(M):zero()
 
@@ -208,23 +226,31 @@ function PriorityQueueSimpleDecoder:updateGradInput(input, gradOutput)
         torch.gt(self.P, self.rhocum), 
         torch.gt(self.rhocum, 0)):typeAs(self.output)
 
-    local grad_r = torch.cmul(self.R, 1.0 - self.R):view(Tdec,1,B)
+    local one_minus_r = self.buffer1:resizeAs(self.R):fill(1) 
+    one_minus_r:csub(self.R)
+    local grad_r = torch.cmul(
+        self.grad_r, 
+        self.R, one_minus_r):view(Tdec,1,B)
     
     local grad_phi_wrt_f = torch.cmul(
         torch.gt(self.P, self.phicum), 
         torch.gt(self.phicum, 0)):typeAs(self.output)
-    local grad_f = torch.cmul(self.F, 1.0 - self.F):view(Tdec,1,B)
+
+    local one_minus_f = self.buffer1:resizeAs(self.F):fill(1) 
+    one_minus_f:csub(self.F)
+    local grad_f = torch.cmul(
+        self.grad_f, 
+        self.F, one_minus_f):view(Tdec,1,B)
+ 
     local grad_f_wrt_y = self.weight_forget_in:expand(Tdec,B,D)
 
     local grad_r_wrt_y = self.weight_read_in:expand(Tdec,B,D)
     local grad_r_t_wrt_h_t = self.weight_read_h:view(1,D):expand(B,D)
 
-    local grad_h_tp1_wrt_h_t = 
-        torch.Tensor():resize(B,D):typeAs(self.h_0):zero()
+    local grad_h_tp1_wrt_h_t = self.grad_h_tp1_wrt_h_t:resize(B,D):zero()
 
 
-    local grad_pi_tp1 = 
-        torch.Tensor():resize(Tmem,B):typeAs(self.output):zero()
+    local grad_pi_tp1 = self.grad_pi_tp1:resize(Tmem,B):zero()
 
     for t=Tdec,1,-1 do
         
@@ -240,48 +266,71 @@ function PriorityQueueSimpleDecoder:updateGradInput(input, gradOutput)
 
         -- combine path A & B
         local grad_o_t_and_h_tp1_wrt_h_t = torch.add(
-            grad_o_t_wrt_h_t, grad_h_tp1_wrt_h_t)
+            self.buffer1,
+            grad_o_t_wrt_h_t, 
+            grad_h_tp1_wrt_h_t)
 
-        grad_M = grad_M + 
+        grad_M:add( 
             torch.cmul(
+                self.buffer2,
                 grad_o_t_and_h_tp1_wrt_h_t:view(1,B,D):expand(Tmem,B,D),
                 self.rho[t]:view(Tmem,B,1):expand(Tmem,B,D)
             )
+        )
 
         -- path C
         local grad_o_t_and_h_tp1_wrt_rho_t = torch.cmul(
+            self.buffer2,
             grad_o_t_and_h_tp1_wrt_h_t:view(1,B,D):expand(Tmem,B,D),
             grad_h_t_wrt_rho_t)
 
         -- path D
-        local grad_o_t_and_h_tp1_wrt_r_t = torch.cmul(
-            grad_o_t_and_h_tp1_wrt_rho_t:sum(3),
-            grad_rho_wrt_r[t]:view(Tmem,B,1))
+        local grad_o_t_and_h_tp1_wrt_r_t = 
+            torch.sum(self.buffer3, grad_o_t_and_h_tp1_wrt_rho_t, 3):cmul(
+                grad_rho_wrt_r[t]:view(Tmem,B,1))
         grad_o_t_and_h_tp1_wrt_r_t = torch.cmul(
-            grad_o_t_and_h_tp1_wrt_r_t:sum(1):view(B,1),
+            self.buffer3,
+            torch.sum(self.buffer4, grad_o_t_and_h_tp1_wrt_r_t, 1):view(B,1),
             grad_r[t]:view(B,1))
 
         -- path E
         local grad_o_t_and_h_tp1_wrt_y_t = torch.cmul(
+            self.buffer4,
             grad_o_t_and_h_tp1_wrt_r_t:expand(B,D),
             grad_r_wrt_y[t]
         )
-        grad_Y[t]:copy(grad_o_t_and_h_tp1_wrt_y_t)
+        grad_Y[t]:add(grad_o_t_and_h_tp1_wrt_y_t)
        
+        self.grad_read_in:add(
+            torch.sum(
+                self.buffer1, 
+                torch.cmul(
+                    self.buffer4,
+                    grad_o_t_and_h_tp1_wrt_r_t:expand(B,D),
+                    input_seq[t]
+                ), 
+                1
+            ):view(1,1,D)
+        )
 
-        grad_W_ry[t] = 
-            torch.cmul(
-                grad_o_t_and_h_tp1_wrt_r_t:expand(B,D),
-                input_seq[t]
-            )
-
-        grad_W_rh[t] = 
-            torch.cmul(
-                grad_o_t_and_h_tp1_wrt_r_t:expand(B,D),
-                htm1
-            )
+        self.grad_read_h:add(
+            torch.sum(
+                self.buffer1,
+                torch.cmul(
+                    self.buffer4,
+                    grad_o_t_and_h_tp1_wrt_r_t:expand(B,D),
+                    htm1
+                ),
+                1
+            ):view(1,1,D)
+        )
         
-        grad_b_r[t]:copy(grad_o_t_and_h_tp1_wrt_r_t)
+        self.grad_read_b:add(
+            torch.sum(
+                self.buffer1,
+                grad_o_t_and_h_tp1_wrt_r_t,
+                1
+            ):view(1,1,1))
 
         -- path F
         torch.cmul(
@@ -295,24 +344,36 @@ function PriorityQueueSimpleDecoder:updateGradInput(input, gradOutput)
 
         -- path G
         local grad_o_t_and_h_tp1_wrt_pi_t = 
-            torch.Tensor():resize(Tmem,B):typeAs(self.output):zero()
+            self.buffer1:resize(Tmem,B):zero()
         for j=1,Tmem do
-            local grad_rho_j_wrt_pi_j = torch.cmul(
+            local grad_rho_j_wrt_pi_j = self.buffer4:resizeAs(pi_t[j])
+            grad_rho_j_wrt_pi_j:copy(
+                torch.cmul(
                 torch.le(pi_t[j], rhocum_t[j]),
-                torch.gt(rhocum_t[j], 0)):typeAs(self.output)
+                torch.gt(rhocum_t[j], 0))) --:typeAs(self.output)
             grad_o_t_and_h_tp1_wrt_pi_t[j]:add(
                 torch.cmul(
+                    self.buffer4,
                     grad_rho_j_wrt_pi_j,
-                    grad_o_t_and_h_tp1_wrt_rho_t[j]:sum(2):view(B)))
+                    torch.sum(
+                        self.buffer3,
+                        grad_o_t_and_h_tp1_wrt_rho_t[j], 
+                        2):view(B)))
             for i=j+1,Tmem do
-                local grad_rho_i_wrt_pi_j = torch.cmul(
+                local grad_rho_i_wrt_pi_j = self.buffer4:resizeAs(pi_t[i])
+                grad_rho_i_wrt_pi_j:copy(
+                    torch.cmul(
                     torch.gt(pi_t[i], rhocum_t[i]),
-                    torch.gt(rhocum_t[i], 0)):typeAs(self.output):mul(-1)
+                    torch.gt(rhocum_t[i], 0))):mul(-1)
                     
                 grad_o_t_and_h_tp1_wrt_pi_t[j]:add(
                     torch.cmul(
+                        self.buffer4,
                         grad_rho_i_wrt_pi_j,
-                        grad_o_t_and_h_tp1_wrt_rho_t[i]:sum(2):view(B)))
+                        torch.sum(
+                            self.buffer3,
+                            grad_o_t_and_h_tp1_wrt_rho_t[i],
+                            2):view(B)))
                     
             end
         end
@@ -320,75 +381,91 @@ function PriorityQueueSimpleDecoder:updateGradInput(input, gradOutput)
 
         -- path H
         local grad_pi_tp1_wrt_phi_t = 
-            grad_pi_tp1 * -1.0
+            torch.mul(
+                self.buffer2,
+                grad_pi_tp1, -1.0)
         local grad_pi_tp1_wrt_pi_t = 
-            torch.Tensor():resize(Tmem,B):typeAs(self.output):zero()
+            self.buffer3:resize(Tmem,B):zero()
         for j=1,Tmem do
-            local grad_phi_j_wrt_pi_j = torch.cmul(
-                torch.le(pi_t[j], phicum_t[j]),
-                torch.gt(phicum_t[j], 0)):typeAs(self.output)
+            local grad_phi_j_wrt_pi_j = self.buffer4:resizeAs(pi_t[j]):copy(
+                torch.cmul(
+                    torch.le(pi_t[j], phicum_t[j]),
+                    torch.gt(phicum_t[j], 0)))
             grad_pi_tp1_wrt_pi_t[j]:add(
                 torch.cmul(
+                    self.buffer5,
                     grad_pi_tp1_wrt_phi_t[j],
                     grad_phi_j_wrt_pi_j))
             for i=j+1,Tmem do
-                local grad_phi_i_wrt_pi_j = torch.cmul(
-                    torch.gt(pi_t[i], phicum_t[i]),
-                    torch.gt(phicum_t[i], 0)):typeAs(self.output):mul(-1)
+                local grad_phi_i_wrt_pi_j = self.buffer4:copy( 
+                    torch.cmul(
+                        torch.gt(pi_t[i], phicum_t[i]),
+                        torch.gt(phicum_t[i], 0))):mul(-1)
                     
                 grad_pi_tp1_wrt_pi_t[j]:add(
                     torch.cmul(
+                        self.buffer5,
                         grad_phi_i_wrt_pi_j,
                         grad_pi_tp1_wrt_phi_t[i]))
                     
             end
         end
  
-
+        grad_pi_tp1:add(grad_o_t_and_h_tp1_wrt_pi_t)
 
         --path I
         local grad_pi_tp1_wrt_ft = torch.cmul(
+            self.buffer1,
             grad_pi_tp1_wrt_phi_t,
             grad_phi_wrt_f[t])
         grad_pi_tp1_wrt_ft = torch.cmul(
-            grad_pi_tp1_wrt_ft:sum(1),
+            self.buffer1,
+            torch.sum(self.buffer2, grad_pi_tp1_wrt_ft, 1),
             grad_f[t])
         
         -- path J
-        grad_Y[t] = grad_Y[t] + 
+        grad_Y[t]:add( 
             torch.cmul(
+                self.buffer2,
                 grad_pi_tp1_wrt_ft:view(B,1):expand(B,D),
-                grad_f_wrt_y[t])
+                grad_f_wrt_y[t]))
         
-        grad_W_fy[t] = torch.cmul(
-                grad_pi_tp1_wrt_ft:view(B,1):expand(B,D),
-                input_seq[t])
+        self.grad_forget_in:add(
+            torch.sum(
+                self.buffer4,
+                torch.cmul(
+                    self.buffer2,
+                    grad_pi_tp1_wrt_ft:view(B,1):expand(B,D),
+                    input_seq[t]),
+                1):view(1,1,D))
 
-        grad_W_fh[t] = torch.cmul(
-            grad_pi_tp1_wrt_ft:view(B,1):expand(B,D),
-            htm1)
+        self.grad_forget_h:add(
+            torch.sum(
+                self.buffer4,
+                torch.cmul(
+                    self.buffer2,
+                    grad_pi_tp1_wrt_ft:view(B,1):expand(B,D),
+                    htm1),
+                1):view(1,1, D))
 
-        grad_b_f[t]:copy(grad_pi_tp1_wrt_ft:view(B,1))
+        self.grad_forget_b:add(
+            torch.sum(
+                self.buffer4,
+                grad_pi_tp1_wrt_ft:view(B,1),
+                1):view(1,1,1))
 
         local grad_pi_tp1_wrt_ht = torch.cmul(
+            self.buffer2,
             grad_pi_tp1_wrt_ft:view(B,1):expand(B,D),
             self.weight_forget_h:view(1,D):expand(B,D))
         
-        grad_h_tp1_wrt_h_t = grad_h_tp1_wrt_h_t + grad_pi_tp1_wrt_ht
+        grad_h_tp1_wrt_h_t:add(grad_pi_tp1_wrt_ht)
 
         -- path K
-        grad_pi_tp1 = grad_pi_tp1 + grad_o_t_and_h_tp1_wrt_pi_t + grad_pi_tp1_wrt_pi_t
+        grad_pi_tp1:add(grad_pi_tp1_wrt_pi_t)
 
 
     end
-
-
-    self.grad_read_in:copy(grad_W_ry:sum(2):sum(1))
-    self.grad_read_h:copy(grad_W_rh:sum(2):sum(1))
-    self.grad_read_b:copy(grad_b_r:sum(2):sum(1))
-    self.grad_forget_in:copy(grad_W_fy:sum(2):sum(1))
-    self.grad_forget_h:copy(grad_W_fh:sum(2):sum(1))
-    self.grad_forget_b:copy(grad_b_f:sum(2):sum(1))
 
     self.gradInput = {grad_M, grad_pi_tp1, grad_Y}
 
@@ -400,32 +477,4 @@ function PriorityQueueSimpleDecoder:accGradParameters(input, gradOutput)
 
 end
 
-function PriorityQueueSimpleDecoder:zeroGradParameters()
-    self.grad_read_in:zero()
-    self.grad_read_h:zero()
-    self.grad_read_b:zero()
-    self.grad_forget_in:zero()
-    self.grad_forget_h:zero()
-    self.grad_forget_b:zero()
-    self.grad_Y:zero()
-end
-
-function PriorityQueueSimpleDecoder:parameters()
-
-    local params = {self.weight_read_in,
-                    self.weight_read_h,
-                    self.weight_read_b,
-                    self.weight_forget_in,
-                    self.weight_forget_h,
-                    self.weight_forget_b
-                   }
-    local gradParams = {self.grad_read_in,
-                        self.grad_read_h,
-                        self.grad_read_b,
-                        self.grad_forget_in,
-                        self.grad_forget_h,
-                        self.grad_forget_b
-                       }
-    return params, gradParams
-end
 
