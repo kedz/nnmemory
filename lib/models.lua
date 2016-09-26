@@ -6,13 +6,19 @@ function PriorityQueueNetwork:__init(inputVocabSize, outputVocabSize, dimSize,
     self.inputVocabSize = inputVocabSize
     self.outputVocabSize = outputVocabSize
     self.dimSize = dimSize
-    self.encoderLayers = 1
-    self.decoderLayers = 1
+    self.encoderLayers = 2
+    self.decoderLayers = 2
     self.optimState = optimState
     self:buildNetwork()
 
     self.params, self.gradParams = self.net:getParameters()
 
+end
+
+function PriorityQueueNetwork:cuda()
+    self.net:cuda()
+    self.criterion:cuda()
+    
 end
 
 function PriorityQueueNetwork:buildNetwork()
@@ -93,7 +99,6 @@ end
 function PriorityQueueNetwork:train(encoderIn, decoderIn, decoderOut)
     local function feval(params)
         self.net:zeroGradParameters()
-        
         local input = {encoderIn:t(), decoderIn:t()}
         local decoderOutPred = self.net:forward(input)
         local err = self.criterion:forward(decoderOutPred, decoderOut:t())
