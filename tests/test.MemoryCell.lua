@@ -17,7 +17,7 @@ function pqtests.MemoryCellTestGrad()
     local dimSize = DIM_SIZE
     local X = torch.rand(ENCODER_SIZE, BATCH_SIZE, dimSize)
     local cell = nn.MemoryCell():add(nn.LinearMemoryWriter(dimSize)):add(
-        nn.LinearMemoryWriter(dimSize))
+        nn.BilinearAttentionMemoryWriter(dimSize))
 
     local join = nn.Sequential():add(cell):add(nn.SortOnKey(true)):add(
     nn.ParallelTable():add(nn.Identity()):add(nn.Sequential():add(
