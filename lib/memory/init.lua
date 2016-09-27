@@ -15,6 +15,8 @@ torch.include('memory', 'PriorityQueueSimpleEncoder.lua')
 torch.include('memory', 'PriorityQueueSimpleAttentionEncoder.lua')
 torch.include('memory', 'PriorityQueueSimpleDecoder.lua')
 
+torch.include('memory', 'SortOnKey.lua')
+
 -- -- recurrent modules
 -- torch.include('rnn', 'LookupTableMaskZero.lua')
 -- torch.include('rnn', 'MaskZero.lua')
