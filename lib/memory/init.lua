@@ -17,6 +17,7 @@ torch.include('memory', 'PriorityQueueSimpleDecoder.lua')
 
 torch.include('memory', 'SortOnKey.lua')
 torch.include('memory', 'LinearMemoryWriter.lua')
+torch.include('memory', 'BilinearAttentionMemoryWriter.lua')
 torch.include('memory', 'MemoryCell.lua')
 
 -- -- recurrent modules
