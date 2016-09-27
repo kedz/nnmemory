@@ -68,17 +68,22 @@ function SortOnKey:updateGradInput(input, gradOutput)
 
     local batchSize = memory:size(2)
 
-    local indices_sorted = self.buffer1:resizeAs(gradKey):copy(self.indices_sorted)
-    local _, indices_inv = torch.sort(self.buffer1, self.indices_inv, indices_sorted, 1)
+    local indices_sorted = 
+        self.buffer1:resizeAs(gradKey):copy(self.indices_sorted)
+    local _, indices_inv = torch.sort(
+        self.buffer1, self.indices_inv, indices_sorted, 1)
 
     local gradMemoryInput = self.gradMemory:resizeAs(gradMemory)
     local gradKeyInput = self.gradKey:resizeAs(gradKey)
     for b=1,batchSize do
-        gradMemoryInput:select(2,b):index(gradMemory:select(2,b), 1, indices_inv:select(2,b))
-        gradKeyInput:select(2,b):index(gradKey:select(2,b), 1, indices_inv:select(2,b))
+        gradMemoryInput:select(2,b):index(
+            gradMemory:select(2,b), 1, indices_inv:select(2,b))
+        gradKeyInput:select(2,b):index(
+            gradKey:select(2,b), 1, indices_inv:select(2,b))
     end
 
-    return {gradMemoryInput, gradKeyInput}
+    self.gradInput = {gradMemoryInput, gradKeyInput}
+    return self.gradInput
 
 end
 
