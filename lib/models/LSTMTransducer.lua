@@ -47,6 +47,12 @@ function LSTMTransducer:buildNetwork()
 
 end
 
+function LSTMTransducer:cuda()
+    self.net = self.net:cuda()
+    self.criterion = self.criterion:cuda()
+    return self
+end
+
 function LSTMTransducer:train(encIn, decIn, decOut)
     local input = {encIn:t(), decIn:t()}
     local output = decOut:t()
