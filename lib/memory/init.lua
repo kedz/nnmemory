@@ -11,8 +11,8 @@ unpack = unpack or table.unpack
 
 
 -- priority queue modules
-torch.include('memory', 'PriorityQueueSimpleEncoder.lua')
-torch.include('memory', 'PriorityQueueSimpleAttentionEncoder.lua')
+--torch.include('memory', 'PriorityQueueSimpleEncoder.lua')
+--torch.include('memory', 'PriorityQueueSimpleAttentionEncoder.lua')
 torch.include('memory', 'PriorityQueueSimpleDecoder.lua')
 
 torch.include('memory', 'SortOnKey.lua')
