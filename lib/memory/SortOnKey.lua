@@ -16,6 +16,17 @@ function SortOnKey:__init(descending)
 
 end
 
+function SortOnKey:type(type) 
+    Parent.type(self, type)
+    if type == "torch.CudaTensor" then
+        self.indices_sorted = self.indices_sorted:type("torch.CudaLongTensor")
+        self.indices_inv = self.indices_inv:type("torch.CudaLongTensor")
+    else
+        self.indices_sorted = self.indices_sorted:type("torch.LongTensor")
+        self.indices_inv = self.indices_inv:type("torch.LongTensor")
+    end
+    return self
+end
 
 function SortOnKey:updateOutput(input)
 
