@@ -84,6 +84,22 @@ function data.readData(path, inputVocab, outputVocab, readTopics)
             sizePredictions=totalOutputSize}
 end
 
+
+function data.chunkDataset(dataset, numChunks)
+    local encInChunks = torch.chunk(dataset.encoderInput, numChunks)
+    local decInChunks = torch.chunk(dataset.decoderInput, numChunks)
+    local decOutChunks = torch.chunk(dataset.decoderOutput, numChunks)
+    local datasets = {}
+
+    for i=1,#decOutChunks do
+        datasets[i] = {encoderInput=encInChunks[i], 
+                       decoderInput=decInChunks[i],
+                       decoderOutput=decOutChunks[i],
+                       sizeExamples=encInChunks[i]:size(1)}
+    end
+    return datasets
+end
+
 function data.batches(dataset, batchSize, isGPU)
     
     local X = dataset.encoderInput
