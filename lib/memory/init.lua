@@ -19,6 +19,7 @@ torch.include('memory', 'SortOnKey.lua')
 torch.include('memory', 'LinearMemoryWriter.lua')
 torch.include('memory', 'BilinearAttentionMemoryWriter.lua')
 torch.include('memory', 'MemoryCell.lua')
+torch.include('memory', 'CoupledLSTM.lua')
 
 -- -- recurrent modules
 -- torch.include('rnn', 'LookupTableMaskZero.lua')
