@@ -12,6 +12,7 @@ Options:
    --dim-size        (default 200)   Dimension of of all embeddings, units.
    --num-layers      (default 2)     Number of stacked lstms.
    --seed            (default 1)     Seed for torch random number generator
+   --results-tsv     (string)        Path to write results.
    --progress-bar                    Show progress bar
    --gpu             (default 0)     Which gpu to use. Default is cpu.
 ]]
@@ -65,6 +66,9 @@ local numTrainChunks = math.floor(trainData.sizeExamples / 1000)
 print("Splitting training data into " .. numTrainChunks .. " chunks.")
 local trainDataChunks = data.chunkDataset(trainData, numTrainChunks)
 local lastTrainIndex = 1
+
+
+
 for chunk=1,#trainDataChunks do
     local nextTrainIndex = lastTrainIndex + trainDataChunks[chunk].sizeExamples
 
@@ -85,9 +89,9 @@ for chunk=1,#trainDataChunks do
         trainLoss = trainLoss + err
     end
     local stopTrain = os.clock()
-    local trainAvgNll = trainLoss / trainChunk.sizeExamples
+    local trainPerpl = torch.exp(trainLoss / trainChunk.sizePredictions)
     print(string.format("Training time %.2f", stopTrain - startTrain))
-    print("Training avg. nll = ".. trainAvgNll)
+    print("Training perpl. = ".. trainPerpl)
     table.insert(trainingTimes, stopTrain - startTrain)
 
     -- TEST (same avg. size as training set) --
@@ -128,6 +132,13 @@ for chunk=1,#trainDataChunks do
             "Test (large) time %.2f", stopTestLarge - startTestLarge))
     print("Test (large)  perpl. = "..testPerplLarge)
     table.insert(testTimesLarge, stopTestLarge - startTestLarge)
+
+    local out = assert(io.open(opt.results_tsv, "a"))
+    out:write(opt.seed .. "\t" .. opt.learning_rate .. "\t" .. opt.dim_size .. 
+        "\t" .. opt.batch_size .. "\t" .. opt.num_layers .. "\t" .. 
+        chunk .. "\t" .. trainPerpl .. "\t" .. testPerpl .. "\t" .. 
+        testPerplLarge .. "\n")
+    out:close()
 
 end
 
