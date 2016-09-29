@@ -50,6 +50,10 @@ end
 function LSTMTransducer:cuda()
     self.net = self.net:cuda()
     self.criterion = self.criterion:cuda()
+    local params, gradParams = self.net:getParameters()
+    self.params = params
+    self.gradParams = gradParams
+    
     return self
 end
 
