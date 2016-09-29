@@ -32,8 +32,9 @@ function data.readData(path, inputVocab, outputVocab, readTopics)
     local numExamples = 0
     local totalOutputSize = 0
 
-    inputs = {}
-    outputs = {}
+    local inputs = {}
+    local outputs = {}
+    local outputSizes = {}
     for line in io.lines(path) do
         
         local input, outTokens, outTopics = unpack(stringx.split(line, " || "))
@@ -50,6 +51,7 @@ function data.readData(path, inputVocab, outputVocab, readTopics)
         
         table.insert(inputs, input)
         table.insert(outputs, output)
+        table.insert(outputSizes, #output)
         totalOutputSize = totalOutputSize + #output
     end
 
@@ -58,6 +60,7 @@ function data.readData(path, inputVocab, outputVocab, readTopics)
     local encoderInput = torch.LongTensor(#inputs, maxInputSize):zero()
     local decoderInput = torch.LongTensor(#inputs, maxOutputSize + 1):zero()
     local decoderOutput = torch.LongTensor():resizeAs(decoderInput):zero()
+    outputSizes = torch.LongTensor(outputSizes)
     
     for i=1,#inputs do
         local input = inputs[i]
@@ -81,7 +84,8 @@ function data.readData(path, inputVocab, outputVocab, readTopics)
             decoderInput=decoderInput, 
             decoderOutput=decoderOutput,
             sizeExamples=#inputs,
-            sizePredictions=totalOutputSize}
+            sizePredictions=totalOutputSize,
+            outputSizes=outputSizes}
 end
 
 
@@ -89,13 +93,15 @@ function data.chunkDataset(dataset, numChunks)
     local encInChunks = torch.chunk(dataset.encoderInput, numChunks)
     local decInChunks = torch.chunk(dataset.decoderInput, numChunks)
     local decOutChunks = torch.chunk(dataset.decoderOutput, numChunks)
+    local outSizeChunks = torch.chunk(dataset.outputSizes, numChunks)
     local datasets = {}
 
     for i=1,#decOutChunks do
         datasets[i] = {encoderInput=encInChunks[i], 
                        decoderInput=decInChunks[i],
                        decoderOutput=decOutChunks[i],
-                       sizeExamples=encInChunks[i]:size(1)}
+                       sizeExamples=encInChunks[i]:size(1),
+                       sizePredictions=outSizeChunks[i]:sum()}
     end
     return datasets
 end
