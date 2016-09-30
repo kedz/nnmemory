@@ -18,7 +18,7 @@ function memtest.LinearAssociativeMemoryReader()
     local net = nn.Sequential():add(
         nn.ConcatTable():add(    
             nn.Narrow(1,1,encoderSize)):add(
-            nn.Narrow(1,encoderSize,decoderSize))):add(
+            nn.Narrow(1,encoderSize+1,decoderSize))):add(
         mod)
 
     local params, gradParams = net:getParameters()
