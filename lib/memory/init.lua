@@ -10,6 +10,9 @@ memory.version = 0.1
 unpack = unpack or table.unpack
 
 
+
+torch.include('memory', 'LinearAssociativeMemoryReader.lua')
+
 -- priority queue modules
 --torch.include('memory', 'PriorityQueueSimpleEncoder.lua')
 --torch.include('memory', 'PriorityQueueSimpleAttentionEncoder.lua')
