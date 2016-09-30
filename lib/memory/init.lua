@@ -24,6 +24,7 @@ torch.include('memory', 'BilinearAttentionMemoryWriter.lua')
 torch.include('memory', 'MemoryCell.lua')
 torch.include('memory', 'CoupledLSTM.lua')
 torch.include('memory', 'GradientTests.lua')
+torch.include('memory', 'MaskTests.lua')
 torch.include('memory', 'CudaTests.lua')
 
 -- -- recurrent modules

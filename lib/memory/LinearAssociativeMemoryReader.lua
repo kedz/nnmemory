@@ -4,6 +4,7 @@ local LinearAssociativeMemoryReader, Parent =
 function LinearAssociativeMemoryReader:__init(dimSize)
 
     self.dimSize = dimSize
+    self.isMaskZero = false
 
     self.weightMemory = torch.Tensor(dimSize, dimSize)
     self.weightInput = torch.Tensor(dimSize, dimSize)
@@ -28,6 +29,11 @@ function LinearAssociativeMemoryReader:__init(dimSize)
     self.attNetsPostMask = {}
 
     self:reset()
+end
+
+function LinearAssociativeMemoryReader:maskZero()
+    self.isMaskZero = true
+    return self
 end
 
 function LinearAssociativeMemoryReader:reset()
@@ -71,6 +77,14 @@ function LinearAssociativeMemoryReader:updateOutput(input)
     local output = self.output:resize(maxSteps, batchSize, dimSize)
 
     local MT = M:transpose(2,1)
+
+    local MTmask
+    local Ymask 
+    if self.isMaskZero then
+        MTmask = torch.eq(MT:select(3,1), 0)
+        Ymask = torch.eq(Y, 0)
+    end
+
     local Wmem = self.weightMemory:view(1, dimSize, dimSize):expand(
         batchSize, dimSize, dimSize)
     local Winp = self.weightInput:view(1, dimSize, dimSize):expand(
@@ -79,7 +93,9 @@ function LinearAssociativeMemoryReader:updateOutput(input)
         batchSize, dimSize, 1)
     local bias = self.bias:view(1, 1, 1, dimSize):expand(
        maxSteps, batchSize, memorySize, dimSize)
-    
+   
+
+
     if self.prevMemorySize ~= memorySize then
         self.inpActNet = nn.Sequential():add(
             nn.ParallelTable():add(
@@ -108,6 +124,7 @@ function LinearAssociativeMemoryReader:updateOutput(input)
             nn.CAddTable()):add(
             nn.Tanh())
 
+
     self.attAct = self.attActNet:forward(
         {self.inputAct, self.memoryAct, bias})
 
@@ -124,6 +141,9 @@ function LinearAssociativeMemoryReader:updateOutput(input)
         end
 
         local attPreMask = attNetPreMask:forward({self.attAct[t], Wattn})
+        if self.isMaskZero then
+            attPreMask[MTmask] = -math.huge
+        end
         local att = attNetPostMask:forward(attPreMask)
 
         att = att:view(batchSize, memorySize, 1):expand(
@@ -131,6 +151,10 @@ function LinearAssociativeMemoryReader:updateOutput(input)
         local memoryWeighted = torch.cmul(self.buffer1, att, MT)
         
         output[t]:view(batchSize, 1, dimSize):sum(memoryWeighted, 2)
+    end
+
+    if self.isMaskZero then
+        self.output[Ymask] = 0
     end
     return self.output
 end
@@ -205,7 +229,6 @@ function LinearAssociativeMemoryReader:updateGradInput(input, gradOutput)
     self.gradWeightMemory:add(torch.sum(self.buffer2, gradMemoryAct[2], 1))
     gradM:add(gradMemoryAct[1])
     self.gradInput = {gradM, gradY}
-
 
     self.gradBias:add(
         torch.sum(
