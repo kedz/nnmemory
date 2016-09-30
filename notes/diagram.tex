@@ -1,0 +1,515 @@
+\documentclass[12pt]{article}
+\usepackage{tipa}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usepackage{pdflscape}
+\usetikzlibrary{positioning}
+\usetikzlibrary{calc}
+
+
+\begin{document}
+\begin{landscape}
+
+  \begin{tikzpicture}[scale=0.6, every node/.style={scale=0.6},
+    roundnode/.style={circle, draw=green!60, fill=green!5, very thick, 
+                      minimum size=7mm},
+    units/.style={rectangle, draw=black, 
+                  minimum width=0.75cm, minimum height = 2cm},
+    memory/.style={rectangle, draw=black, 
+                  minimum width=30cm, minimum height = 2cm},
+    word/.style={font=\large, rectangle, text height=1.2cm},
+        ]
+        %Nodes
+        \node[units]      (h0)                              {$h_0$};
+        \node[units]      (h1)         [right=of h0]        {$h_1$};
+        \node[units]      (h2)         [right=of h1]        {$h_2$};
+        \node[units]      (h3)         [right=of h2]        {$h_3$};
+        \node[units]      (h4)         [right=of h3]        {$h_4$};
+        \node[units]      (h5)         [right=of h4]        {$h_5$};
+        \node[units]      (h6)         [right=of h5]        {};
+        \node[units]      (h7)         [right=of h6]        {};
+        \node[units]      (h8)         [right=of h7]        {};
+        \node[units]      (h9)         [right=of h8]        {};
+        \node[units]      (h10)        [right=of h9]        {};
+        \node[units]      (h11)        [right=of h10]        {};
+        \node[units]      (h12)        [right=of h11]        {};
+        \node[units]      (h13)        [right=of h12]        {};
+
+        \draw[->] (h0.east) -- (h1.west);
+        \draw[->] (h1.east) -- (h2.west);
+        \draw[->] (h2.east) -- (h3.west);
+        \draw[->] (h3.east) -- (h4.west);
+        \draw[->] (h4.east) -- (h5.west);
+        \draw[->] (h5.east) -- (h6.west);
+        \draw[->] (h6.east) -- (h7.west);
+        \draw[->] (h7.east) -- (h8.west);
+        \draw[->] (h8.east) -- (h9.west);
+        \draw[->] (h9.east) -- (h10.west);
+        \draw[->] (h10.east) -- (h11.west);
+        \draw[->] (h11.east) -- (h12.west);
+        \draw[->] (h12.east) -- (h13.west);
+
+        \node[units]      (g0)  [above=of h0]  {};
+        \node[units]      (g1)  [right=of g0]  {};
+        \node[units]      (g2)  [right=of g1]  {};
+        \node[units]      (g3)  [right=of g2]  {};
+        \node[units]      (g4)  [right=of g3]  {};
+        \node[units]      (g5)  [right=of g4]  {};
+        \node[units]      (g6)         [right=of g5]        {};
+        \node[units]      (g7)         [right=of g6]        {};
+        \node[units]      (g8)         [right=of g7]        {};
+        \node[units]      (g9)         [right=of g8]        {};
+        \node[units]      (g10)        [right=of g9]        {};
+        \node[units]      (g11)        [right=of g10]        {};
+        \node[units]      (g12)        [right=of g11]        {};
+        \node[units]      (g13)        [right=of g12]        {};
+
+        \node[units,opacity=0]      (f1)         [above=of g1]        {};
+        \node[units,opacity=0]      (f2)         [right=of f1]        {};
+        \node[units,opacity=0]      (f3)         [right=of f2]        {};
+        \node[units,opacity=0]      (f4)         [right=of f3]        {};
+        \node[units,opacity=0]      (f5)         [right=of f4]        {};
+        \node[units,opacity=0]      (f6)         [right=of f5]        {};
+        \node[units,opacity=0]      (f7)         [right=of f6]        {};
+        \node[units,opacity=0]      (f8)         [right=of f7]        {};
+
+        \node[units,opacity=0]      (f9)         [above=of g9]        {};
+        \node[units,opacity=0]      (f10)        [right=of f9]        {};
+        \node[units,opacity=0]      (f11)        [right=of f10]        {};
+        \node[units,opacity=0]      (f12)        [right=of f11]        {};
+        \node[units,opacity=0]      (f13)        [right=of f12]        {};
+
+        \node[units]      (e9)         [above=of f9]        {};
+        \node[units]      (e10)        [right=of e9]        {};
+        \node[units]      (e11)        [right=of e10]        {};
+        \node[units]      (e12)        [right=of e11]        {};
+        \node[units]      (e13)        [right=of e12]        {};
+
+        \node[memory] (m1) at ($(f7)$) {Memory};
+
+
+        \draw[->] (g0.east) -- (g1.west);
+        \draw[->] (g1.east) -- (g2.west);
+        \draw[->] (g2.east) -- (g3.west);
+        \draw[->] (g3.east) -- (g4.west);
+        \draw[->] (g4.east) -- (g5.west);
+        \draw[->] (g5.east) -- (g6.west);
+        \draw[->] (g6.east) -- (g7.west);
+        \draw[->] (g7.east) -- (g8.west);
+        \draw[->] (g8.east) -- (g9.west);
+        \draw[->] (g9.east) -- (g10.west);
+        \draw[->] (g10.east) -- (g11.west);
+        \draw[->] (g11.east) -- (g12.west);
+        \draw[->] (g12.east) -- (g13.west);
+
+
+        \draw[->] (h1.north) -- (g1.south);
+        \draw[->] (h2.north) -- (g2.south);
+        \draw[->] (h3.north) -- (g3.south);
+        \draw[->] (h4.north) -- (g4.south);
+        \draw[->] (h5.north) -- (g5.south);
+        \draw[->] (h6.north) -- (g6.south);
+        \draw[->] (h7.north) -- (g7.south);
+        \draw[->] (h8.north) -- (g8.south);
+        \draw[->] (h9.north) -- (g9.south);
+        \draw[->] (h10.north) -- (g10.south);
+        \draw[->] (h11.north) -- (g11.south);
+        \draw[->] (h12.north) -- (g12.south);
+        \draw[->] (h13.north) -- (g13.south);
+
+        \draw[->] (g1.north) -- (f1.south);
+        \draw[->] (g2.north) -- (f2.south);
+        \draw[->] (g3.north) -- (f3.south);
+        \draw[->] (g4.north) -- (f4.south);
+        \draw[->] (g5.north) -- (f5.south);
+        \draw[->] (g6.north) -- (f6.south);
+        \draw[->] (g7.north) -- (f7.south);
+        \draw[->] (g8.north) -- (f8.south);
+%        \draw[->] (f9.east) -- (f10.west);
+%        \draw[->] (f10.east) -- (f11.west);
+%        \draw[->] (f11.east) -- (f12.west);
+%        \draw[->] (f12.east) -- (f13.west);
+
+
+        \node[word] (w1) [below=of h1] {The};
+        \node[word] (w2) [below=of h2] {dog};
+        \node[word] (w3) [below=of h3] {barked};
+        \node[word] (w4) [below=of h4] {.};
+        \node[word] (w5) [below=of h5] {The};
+        \node[word] (w6) [below=of h6] {cat};
+        \node[word] (w7) [below=of h7] {meowed};
+        \node[word] (w8) [below=of h8] {.};
+        \node[word] (w9) [below=of h9] {\textpipe\textpipe\textpipe};
+        \node[word] (w10) [below=of h10] {The};
+        \node[word] (w11) [below=of h11] {animals};
+        \node[word] (w12) [below=of h12] {sounded};
+        \node[word] (w13) [below=of h13] {.};
+
+        \node[word] (y9) [above=of e9] {The};
+        \node[word] (y10) [above=of e10] {animals};
+        \node[word] (y11) [above=of e11] {sounded};
+        \node[word] (y12) [above=of e12] {.};
+        \node[word] (y13) [above=of e13] {\textpipe\textpipe\textpipe};
+
+        \draw[->] (w1.north) -- (h1.south);
+        \draw[->] (w2.north) -- (h2.south);
+        \draw[->] (w3.north) -- (h3.south);
+        \draw[->] (w4.north) -- (h4.south);
+        \draw[->] (w5.north) -- (h5.south);
+        \draw[->] (w6.north) -- (h6.south);
+        \draw[->] (w7.north) -- (h7.south);
+        \draw[->] (w8.north) -- (h8.south);
+        \draw[->] (w9.north) -- (h9.south);
+        \draw[->] (w10.north) -- (h10.south);
+        \draw[->] (w11.north) -- (h11.south);
+        \draw[->] (w12.north) -- (h12.south);
+        \draw[->] (w13.north) -- (h13.south);
+
+        \draw[->] (g9.north) -- (f9.south);
+        \draw[->] (g10.north) -- (f10.south);
+        \draw[->] (g11.north) -- (f11.south);
+        \draw[->] (g12.north) -- (f12.south);
+        \draw[->] (g13.north) -- (f13.south);
+
+        \draw[->] (f9.north) -- (e9.south);
+        \draw[->] (f10.north) -- (e10.south);
+        \draw[->] (f11.north) -- (e11.south);
+        \draw[->] (f12.north) -- (e12.south);
+        \draw[->] (f13.north) -- (e13.south);
+
+        \draw[->] (e9.north) -- (y9.south);
+        \draw[->] (e10.north) -- (y10.south);
+        \draw[->] (e11.north) -- (y11.south);
+        \draw[->] (e12.north) -- (y12.south);
+        \draw[->] (e13.north) -- (y13.south);
+
+    
+    
+\end{tikzpicture}
+
+\pagebreak
+
+
+
+
+  \begin{tikzpicture}[scale=0.6, every node/.style={scale=0.6},
+    roundnode/.style={circle, draw=green!60, fill=green!5, very thick, 
+                      minimum size=7mm},
+    units/.style={rectangle, draw=black, 
+                  minimum width=0.75cm, minimum height = 2cm},
+    word/.style={font=\large, rectangle, text height=1.2cm},
+        ]
+        %Nodes
+        \node[units]      (h0)                              {$h_0$};
+        \node[units]      (h1)         [right=of h0]        {$h_1$};
+        \node[units]      (h2)         [right=of h1]        {$h_2$};
+        \node[units]      (h3)         [right=of h2]        {$h_3$};
+        \node[units]      (h4)         [right=of h3]        {$h_4$};
+        \node[units]      (h5)         [right=of h4]        {$h_5$};
+        \node[units]      (h6)         [right=of h5]        {};
+        \node[units]      (h7)         [right=of h6]        {};
+        \node[units]      (h8)         [right=of h7]        {};
+        \node[units]      (h9)         [right=of h8]        {};
+        \node[units]      (h10)        [right=of h9]        {};
+        \node[units]      (h11)        [right=of h10]        {};
+        \node[units]      (h12)        [right=of h11]        {};
+        \node[units]      (h13)        [right=of h12]        {};
+
+        \draw[->] (h0.east) -- (h1.west);
+        \draw[->] (h1.east) -- (h2.west);
+        \draw[->] (h2.east) -- (h3.west);
+        \draw[->] (h3.east) -- (h4.west);
+        \draw[->] (h4.east) -- (h5.west);
+        \draw[->] (h5.east) -- (h6.west);
+        \draw[->] (h6.east) -- (h7.west);
+        \draw[->] (h7.east) -- (h8.west);
+        \draw[->] (h8.east) -- (h9.west);
+        \draw[->] (h9.east) -- (h10.west);
+        \draw[->] (h10.east) -- (h11.west);
+        \draw[->] (h11.east) -- (h12.west);
+        \draw[->] (h12.east) -- (h13.west);
+
+        \node[units]      (g0)  [above=of h0]  {};
+        \node[units]      (g1)  [right=of g0]  {};
+        \node[units]      (g2)  [right=of g1]  {};
+        \node[units]      (g3)  [right=of g2]  {};
+        \node[units]      (g4)  [right=of g3]  {};
+        \node[units]      (g5)  [right=of g4]  {};
+        \node[units]      (g6)         [right=of g5]        {};
+        \node[units]      (g7)         [right=of g6]        {};
+        \node[units]      (g8)         [right=of g7]        {};
+        \node[units]      (g9)         [right=of g8]        {};
+        \node[units]      (g10)        [right=of g9]        {};
+        \node[units]      (g11)        [right=of g10]        {};
+        \node[units]      (g12)        [right=of g11]        {};
+        \node[units]      (g13)        [right=of g12]        {};
+
+        \node[units]      (f9)         [above=of g9]        {};
+        \node[units]      (f10)        [right=of f9]        {};
+        \node[units]      (f11)        [right=of f10]        {};
+        \node[units]      (f12)        [right=of f11]        {};
+        \node[units]      (f13)        [right=of f12]        {};
+
+
+
+
+        \draw[->] (g0.east) -- (g1.west);
+        \draw[->] (g1.east) -- (g2.west);
+        \draw[->] (g2.east) -- (g3.west);
+        \draw[->] (g3.east) -- (g4.west);
+        \draw[->] (g4.east) -- (g5.west);
+        \draw[->] (g5.east) -- (g6.west);
+        \draw[->] (g6.east) -- (g7.west);
+        \draw[->] (g7.east) -- (g8.west);
+        \draw[->] (g8.east) -- (g9.west);
+        \draw[->] (g9.east) -- (g10.west);
+        \draw[->] (g10.east) -- (g11.west);
+        \draw[->] (g11.east) -- (g12.west);
+        \draw[->] (g12.east) -- (g13.west);
+
+
+        \draw[->] (h1.north) -- (g1.south);
+        \draw[->] (h2.north) -- (g2.south);
+        \draw[->] (h3.north) -- (g3.south);
+        \draw[->] (h4.north) -- (g4.south);
+        \draw[->] (h5.north) -- (g5.south);
+        \draw[->] (h6.north) -- (g6.south);
+        \draw[->] (h7.north) -- (g7.south);
+        \draw[->] (h8.north) -- (g8.south);
+        \draw[->] (h9.north) -- (g9.south);
+        \draw[->] (h10.north) -- (g10.south);
+        \draw[->] (h11.north) -- (g11.south);
+        \draw[->] (h12.north) -- (g12.south);
+        \draw[->] (h13.north) -- (g13.south);
+
+%        \draw[->] (f9.east) -- (f10.west);
+%        \draw[->] (f10.east) -- (f11.west);
+%        \draw[->] (f11.east) -- (f12.west);
+%        \draw[->] (f12.east) -- (f13.west);
+
+
+        \node[word] (w1) [below=of h1] {The};
+        \node[word] (w2) [below=of h2] {dog};
+        \node[word] (w3) [below=of h3] {barked};
+        \node[word] (w4) [below=of h4] {.};
+        \node[word] (w5) [below=of h5] {The};
+        \node[word] (w6) [below=of h6] {cat};
+        \node[word] (w7) [below=of h7] {meowed};
+        \node[word] (w8) [below=of h8] {.};
+        \node[word] (w9) [below=of h9] {\textpipe\textpipe\textpipe};
+        \node[word] (w10) [below=of h10] {The};
+        \node[word] (w11) [below=of h11] {animals};
+        \node[word] (w12) [below=of h12] {sounded};
+        \node[word] (w13) [below=of h13] {.};
+
+        \node[word] (y9) [above=of f9] {The};
+        \node[word] (y10) [above=of f10] {animals};
+        \node[word] (y11) [above=of f11] {sounded};
+        \node[word] (y12) [above=of f12] {.};
+        \node[word] (y13) [above=of f13] {\textpipe\textpipe\textpipe};
+
+        \draw[->] (w1.north) -- (h1.south);
+        \draw[->] (w2.north) -- (h2.south);
+        \draw[->] (w3.north) -- (h3.south);
+        \draw[->] (w4.north) -- (h4.south);
+        \draw[->] (w5.north) -- (h5.south);
+        \draw[->] (w6.north) -- (h6.south);
+        \draw[->] (w7.north) -- (h7.south);
+        \draw[->] (w8.north) -- (h8.south);
+        \draw[->] (w9.north) -- (h9.south);
+        \draw[->] (w10.north) -- (h10.south);
+        \draw[->] (w11.north) -- (h11.south);
+        \draw[->] (w12.north) -- (h12.south);
+        \draw[->] (w13.north) -- (h13.south);
+
+        \draw[->] (g9.north) -- (f9.south);
+        \draw[->] (g10.north) -- (f10.south);
+        \draw[->] (g11.north) -- (f11.south);
+        \draw[->] (g12.north) -- (f12.south);
+        \draw[->] (g13.north) -- (f13.south);
+
+
+        \draw[->] (f9.north) -- (y9.south);
+        \draw[->] (f10.north) -- (y10.south);
+        \draw[->] (f11.north) -- (y11.south);
+        \draw[->] (f12.north) -- (y12.south);
+        \draw[->] (f13.north) -- (y13.south);
+
+    
+        \draw[->,dashed,opacity=.25] (g1.north) -- (f9.south);
+        \draw[->,dashed,opacity=.25] (g2.north) -- (f9.south);
+        \draw[->,dashed,opacity=.25] (g3.north) -- (f9.south);
+        \draw[->,dashed,opacity=.25] (g4.north) -- (f9.south);
+        \draw[->,dashed,opacity=.25] (g5.north) -- (f9.south);
+        \draw[->,dashed,opacity=.25] (g6.north) -- (f9.south);
+        \draw[->,dashed,opacity=.25] (g7.north) -- (f9.south);
+        \draw[->,dashed,opacity=.25] (g8.north) -- (f9.south);
+
+        \draw[->,dashed,opacity=.75] (g1.north) -- (f10.south);
+        \draw[->,dashed,opacity=.75] (g2.north) -- (f10.south);
+        \draw[->,dashed,opacity=.75] (g3.north) -- (f10.south);
+        \draw[->,dashed,opacity=.75] (g4.north) -- (f10.south);
+        \draw[->,dashed,opacity=.75] (g5.north) -- (f10.south);
+        \draw[->,dashed,opacity=.75] (g6.north) -- (f10.south);
+        \draw[->,dashed,opacity=.75] (g7.north) -- (f10.south);
+        \draw[->,dashed,opacity=.75] (g8.north) -- (f10.south);
+ 
+        \draw[->,dashed,opacity=.25] (g1.north) -- (f11.south);
+        \draw[->,dashed,opacity=.25] (g2.north) -- (f11.south);
+        \draw[->,dashed,opacity=.25] (g3.north) -- (f11.south);
+        \draw[->,dashed,opacity=.25] (g4.north) -- (f11.south);
+        \draw[->,dashed,opacity=.25] (g5.north) -- (f11.south);
+        \draw[->,dashed,opacity=.25] (g6.north) -- (f11.south);
+        \draw[->,dashed,opacity=.25] (g7.north) -- (f11.south);
+        \draw[->,dashed,opacity=.25] (g8.north) -- (f11.south);
+ 
+        \draw[->,dashed,opacity=.25] (g1.north) -- (f12.south);
+        \draw[->,dashed,opacity=.25] (g2.north) -- (f12.south);
+        \draw[->,dashed,opacity=.25] (g3.north) -- (f12.south);
+        \draw[->,dashed,opacity=.25] (g4.north) -- (f12.south);
+        \draw[->,dashed,opacity=.25] (g5.north) -- (f12.south);
+        \draw[->,dashed,opacity=.25] (g6.north) -- (f12.south);
+        \draw[->,dashed,opacity=.25] (g7.north) -- (f12.south);
+        \draw[->,dashed,opacity=.25] (g8.north) -- (f12.south);
+ 
+        \draw[->,dashed,opacity=.25] (g1.north) -- (f13.south);
+        \draw[->,dashed,opacity=.25] (g2.north) -- (f13.south);
+        \draw[->,dashed,opacity=.25] (g3.north) -- (f13.south);
+        \draw[->,dashed,opacity=.25] (g4.north) -- (f13.south);
+        \draw[->,dashed,opacity=.25] (g5.north) -- (f13.south);
+        \draw[->,dashed,opacity=.25] (g6.north) -- (f13.south);
+        \draw[->,dashed,opacity=.25] (g7.north) -- (f13.south);
+        \draw[->,dashed,opacity=.25] (g8.north) -- (f13.south);
+ 
+
+    
+\end{tikzpicture}
+
+\pagebreak
+
+\begin{tikzpicture}[scale=0.6, every node/.style={scale=0.6},
+    roundnode/.style={circle, draw=green!60, fill=green!5, very thick, 
+                      minimum size=7mm},
+    units/.style={rectangle, draw=black, 
+                  minimum width=0.75cm, minimum height = 2cm},
+    word/.style={font=\large, rectangle, text height=1.2cm},
+        ]
+        %Nodes
+        \node[units]      (h0)                              {$h_0$};
+        \node[units]      (h1)         [right=of h0]        {$h_1$};
+        \node[units]      (h2)         [right=of h1]        {$h_2$};
+        \node[units]      (h3)         [right=of h2]        {$h_3$};
+        \node[units]      (h4)         [right=of h3]        {$h_4$};
+        \node[units]      (h5)         [right=of h4]        {$h_5$};
+        \node[units]      (h6)         [right=of h5]        {};
+        \node[units]      (h7)         [right=of h6]        {};
+        \node[units]      (h8)         [right=of h7]        {};
+        \node[units]      (h9)         [right=of h8]        {};
+        \node[units]      (h10)        [right=of h9]        {};
+        \node[units]      (h11)        [right=of h10]        {};
+        \node[units]      (h12)        [right=of h11]        {};
+        \node[units]      (h13)        [right=of h12]        {};
+
+        \draw[->] (h0.east) -- (h1.west);
+        \draw[->] (h1.east) -- (h2.west);
+        \draw[->] (h2.east) -- (h3.west);
+        \draw[->] (h3.east) -- (h4.west);
+        \draw[->] (h4.east) -- (h5.west);
+        \draw[->] (h5.east) -- (h6.west);
+        \draw[->] (h6.east) -- (h7.west);
+        \draw[->] (h7.east) -- (h8.west);
+        \draw[->] (h8.east) -- (h9.west);
+        \draw[->] (h9.east) -- (h10.west);
+        \draw[->] (h10.east) -- (h11.west);
+        \draw[->] (h11.east) -- (h12.west);
+        \draw[->] (h12.east) -- (h13.west);
+
+        \node[units]      (g0)  [above=of h0]  {};
+        \node[units]      (g1)  [right=of g0]  {};
+        \node[units]      (g2)  [right=of g1]  {};
+        \node[units]      (g3)  [right=of g2]  {};
+        \node[units]      (g4)  [right=of g3]  {};
+        \node[units]      (g5)  [right=of g4]  {};
+        \node[units]      (g6)         [right=of g5]        {};
+        \node[units]      (g7)         [right=of g6]        {};
+        \node[units]      (g8)         [right=of g7]        {};
+        \node[units]      (g9)         [right=of g8]        {};
+        \node[units]      (g10)        [right=of g9]        {};
+        \node[units]      (g11)        [right=of g10]        {};
+        \node[units]      (g12)        [right=of g11]        {};
+        \node[units]      (g13)        [right=of g12]        {};
+
+        \draw[->] (g0.east) -- (g1.west);
+        \draw[->] (g1.east) -- (g2.west);
+        \draw[->] (g2.east) -- (g3.west);
+        \draw[->] (g3.east) -- (g4.west);
+        \draw[->] (g4.east) -- (g5.west);
+        \draw[->] (g5.east) -- (g6.west);
+        \draw[->] (g6.east) -- (g7.west);
+        \draw[->] (g7.east) -- (g8.west);
+        \draw[->] (g8.east) -- (g9.west);
+        \draw[->] (g9.east) -- (g10.west);
+        \draw[->] (g10.east) -- (g11.west);
+        \draw[->] (g11.east) -- (g12.west);
+        \draw[->] (g12.east) -- (g13.west);
+
+
+        \draw[->] (h1.north) -- (g1.south);
+        \draw[->] (h2.north) -- (g2.south);
+        \draw[->] (h3.north) -- (g3.south);
+        \draw[->] (h4.north) -- (g4.south);
+        \draw[->] (h5.north) -- (g5.south);
+        \draw[->] (h6.north) -- (g6.south);
+        \draw[->] (h7.north) -- (g7.south);
+        \draw[->] (h8.north) -- (g8.south);
+        \draw[->] (h9.north) -- (g9.south);
+        \draw[->] (h10.north) -- (g10.south);
+        \draw[->] (h11.north) -- (g11.south);
+        \draw[->] (h12.north) -- (g12.south);
+        \draw[->] (h13.north) -- (g13.south);
+
+
+        \node[word] (w1) [below=of h1] {The};
+        \node[word] (w2) [below=of h2] {dog};
+        \node[word] (w3) [below=of h3] {barked};
+        \node[word] (w4) [below=of h4] {.};
+        \node[word] (w5) [below=of h5] {The};
+        \node[word] (w6) [below=of h6] {cat};
+        \node[word] (w7) [below=of h7] {meowed};
+        \node[word] (w8) [below=of h8] {.};
+        \node[word] (w9) [below=of h9] {\textpipe\textpipe\textpipe};
+        \node[word] (w10) [below=of h10] {The};
+        \node[word] (w11) [below=of h11] {animals};
+        \node[word] (w12) [below=of h12] {sounded};
+        \node[word] (w13) [below=of h13] {.};
+
+        \node[word] (y9) [above=of g9] {The};
+        \node[word] (y10) [above=of g10] {animals};
+        \node[word] (y11) [above=of g11] {sounded};
+        \node[word] (y12) [above=of g12] {.};
+        \node[word] (y13) [above=of g13] {\textpipe\textpipe\textpipe};
+
+        \draw[->] (w1.north) -- (h1.south);
+        \draw[->] (w2.north) -- (h2.south);
+        \draw[->] (w3.north) -- (h3.south);
+        \draw[->] (w4.north) -- (h4.south);
+        \draw[->] (w5.north) -- (h5.south);
+        \draw[->] (w6.north) -- (h6.south);
+        \draw[->] (w7.north) -- (h7.south);
+        \draw[->] (w8.north) -- (h8.south);
+        \draw[->] (w9.north) -- (h9.south);
+        \draw[->] (w10.north) -- (h10.south);
+        \draw[->] (w11.north) -- (h11.south);
+        \draw[->] (w12.north) -- (h12.south);
+        \draw[->] (w13.north) -- (h13.south);
+
+        \draw[->] (g9.north) -- (y9.south);
+        \draw[->] (g10.north) -- (y10.south);
+        \draw[->] (g11.north) -- (y11.south);
+        \draw[->] (g12.north) -- (y12.south);
+        \draw[->] (g13.north) -- (y13.south);
+\end{tikzpicture}
+\end{landscape}
+
+\end{document}
