@@ -28,6 +28,10 @@ function LinearAssociativeMemoryReader:__init(dimSize)
     self.attNetsPreMask = {}
     self.attNetsPostMask = {}
 
+    self.attActNet = nn.Sequential():add(
+            nn.CAddTable()):add(
+            nn.Tanh())
+
     self:reset()
 end
 
@@ -104,6 +108,7 @@ function LinearAssociativeMemoryReader:updateOutput(input)
             nn.MM()):add(
             nn.Transpose({2,1})):add(
             nn.Replicate(memorySize, 3))
+        self.inpActNet:type(self:type())
         self.prevMemorySize = memorySize
     end
 
@@ -114,15 +119,13 @@ function LinearAssociativeMemoryReader:updateOutput(input)
                 nn.Identity())):add(
             nn.MM()):add(
             nn.Replicate(maxSteps))
+        self.memActNet:type(self:type())
         self.prevMaxSteps = maxSteps
     end
 
     self.inputAct = self.inpActNet:forward({Y, Winp})
     self.memoryAct = self.memActNet:forward({M, Wmem})
 
-    self.attActNet = nn.Sequential():add(
-            nn.CAddTable()):add(
-            nn.Tanh())
 
 
     self.attAct = self.attActNet:forward(
@@ -134,9 +137,11 @@ function LinearAssociativeMemoryReader:updateOutput(input)
         if attNetPreMask == nil then
             self.attNetsPreMask[t] = nn.Sequential():add(
                 nn.MM()):add(nn.Squeeze(3))
+            self.attNetsPreMask[t]:type(self:type())
                 
             attNetPreMask = self.attNetsPreMask[t]
             self.attNetsPostMask[t] = nn.SoftMax()
+            self.attNetsPostMask[t]:type(self:type())
             attNetPostMask = self.attNetsPostMask[t]
         end
 

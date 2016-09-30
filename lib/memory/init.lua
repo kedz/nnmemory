@@ -26,6 +26,7 @@ torch.include('memory', 'CoupledLSTM.lua')
 torch.include('memory', 'GradientTests.lua')
 torch.include('memory', 'MaskTests.lua')
 torch.include('memory', 'CudaTests.lua')
+torch.include('memory', 'CudaMaskTests.lua')
 
 -- -- recurrent modules
 -- torch.include('rnn', 'LookupTableMaskZero.lua')

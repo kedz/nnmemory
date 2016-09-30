@@ -81,6 +81,22 @@ local function testBackward(protoModule, input, maxError)
     end
 end
 
+
+function cumemtest.LinearAssociativeMemoryReader()
+    local encoderSize = 5
+    local decoderSize = 6
+    local dimSize = 10
+    local batchSize = 3
+
+    local M = torch.rand(encoderSize, batchSize, dimSize)
+    local Y = torch.rand(decoderSize, batchSize, dimSize)
+
+    local mod = nn.LinearAssociativeMemoryReader(dimSize)
+    testForward(mod, {M, Y}, precision_forward)
+    testBackward(mod, {M, Y}, precision_forward)
+
+end
+
 function cumemtest.SortOnKey()
     local encoderSize = 4
     local batchSize = 2
