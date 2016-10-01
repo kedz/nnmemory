@@ -18,11 +18,15 @@ torch.include('memory', 'LinearAssociativeMemoryReader.lua')
 --torch.include('memory', 'PriorityQueueSimpleAttentionEncoder.lua')
 torch.include('memory', 'PriorityQueueSimpleDecoder.lua')
 
-torch.include('memory', 'SortOnKey.lua')
 torch.include('memory', 'LinearMemoryWriter.lua')
+torch.include('memory', 'LinearAssociativeMemoryWriter.lua')
 torch.include('memory', 'BilinearAttentionMemoryWriter.lua')
+
+
+torch.include('memory', 'SortOnKey.lua')
 torch.include('memory', 'MemoryCell.lua')
 torch.include('memory', 'CoupledLSTM.lua')
+
 torch.include('memory', 'GradientTests.lua')
 torch.include('memory', 'MaskTests.lua')
 torch.include('memory', 'CudaTests.lua')

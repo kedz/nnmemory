@@ -6,6 +6,63 @@ local jac
 
 local memtest = torch.TestSuite()
 
+
+function memtest.LinearAssociativeMemoryWriter()
+
+    local dimSize = 10
+    local batchSize = 3
+    local encoderSize = 7
+
+    local X = torch.rand(encoderSize, batchSize, dimSize)
+    local netF = nn.LinearAssociativeMemoryWriter(dimSize, "forward")
+
+    local params, gradParams = netF:getParameters()
+
+    local err = nn.Jacobian.testJacobian(
+        netF, X)
+    mytester:assertlt(err, precision, 
+       "LinearAssociativeMemoryWriter (forward) input gradient is incorrect.")
+
+    netF:zeroGradParameters()
+    local errParams = nn.Jacobian.testJacobianParameters(
+        netF, X, params, gradParams)
+    mytester:assertlt(errParams, precision,
+       "LinearAssociativeMemoryWriter (forward) param gradient is incorrect.")
+
+    local netB = nn.LinearAssociativeMemoryWriter(dimSize, "backward")
+
+    local params, gradParams = netB:getParameters()
+
+    local err = nn.Jacobian.testJacobian(
+        netB, X)
+    mytester:assertlt(err, precision, 
+       "LinearAssociativeMemoryWriter (backward) input gradient is incorrect.")
+
+    netB:zeroGradParameters()
+    local errParams = nn.Jacobian.testJacobianParameters(
+        netB, X, params, gradParams)
+    mytester:assertlt(errParams, precision,
+       "LinearAssociativeMemoryWriter (backward) param gradient is incorrect.")
+
+    local netA = nn.LinearAssociativeMemoryWriter(dimSize, "all")
+
+    local params, gradParams = netA:getParameters()
+
+    local err = nn.Jacobian.testJacobian(
+        netA, X)
+    mytester:assertlt(err, precision, 
+       "LinearAssociativeMemoryWriter (all) input gradient is incorrect.")
+
+    netA:zeroGradParameters()
+    local errParams = nn.Jacobian.testJacobianParameters(
+        netA, X, params, gradParams)
+    mytester:assertlt(errParams, precision,
+       "LinearAssociativeMemoryWriter (all) param gradient is incorrect.")
+
+end
+
+
+
 function memtest.LinearAssociativeMemoryReader()
 
     local dimSize = 10
