@@ -81,6 +81,28 @@ local function testBackward(protoModule, input, maxError)
     end
 end
 
+function cumemtest.LinearAssociativeMemoryWriter()
+    local encoderSize = 5
+    local dimSize = 10
+    local batchSize = 3
+
+    local X = torch.rand(encoderSize, batchSize, dimSize)
+
+    local netF = nn.LinearAssociativeMemoryWriter(dimSize, "forward")
+    testForward(netF, X, precision_forward)
+    testBackward(netF, X, precision_forward)
+
+    local netB = nn.LinearAssociativeMemoryWriter(dimSize, "backward")
+    testForward(netB, X, precision_forward)
+    testBackward(netB, X, precision_forward)
+
+    local netA = nn.LinearAssociativeMemoryWriter(dimSize, "all")
+    testForward(netA, X, precision_forward)
+    testBackward(netA, X, precision_forward)
+
+end
+
+
 
 function cumemtest.LinearAssociativeMemoryReader()
     local encoderSize = 5

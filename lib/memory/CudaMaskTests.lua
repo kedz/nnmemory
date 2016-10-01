@@ -5,6 +5,174 @@ local precision_backward = 1e-2
 
 local mytester = torch.Tester()
 
+function cumemtest.LinearAssociativeMemoryWriter()
+
+    local dimSize = 5
+    local batchSize = 2
+    local encoderSizeMask = 3
+    local encoderSize = 2
+
+    local Xmask = torch.rand(encoderSizeMask, batchSize, dimSize):cuda()
+    Xmask[{{2},{1},{}}] = 0
+    Xmask[{{3},{2},{}}] = 0
+    local X = torch.Tensor(encoderSize, batchSize, dimSize):zero():cuda()
+    X[{{1},{},{}}]:copy(Xmask[{{1},{},{}}])
+    X[{{2},{1},{}}]:copy(Xmask[{{3},{1},{}}])
+    X[{{2},{2},{}}]:copy(Xmask[{{2},{2},{}}])
+
+    local gradOutputMask = torch.Tensor(
+        encoderSizeMask, batchSize, dimSize):zero():cuda()
+    local gradOutput = torch.rand(encoderSize, batchSize, dimSize):cuda()
+    gradOutputMask[{{1},{},{}}] = gradOutput[{{1},{},{}}]
+    gradOutputMask[{{3},{1},{}}] = gradOutput[{{2},{1},{}}]
+    gradOutputMask[{{2},{2},{}}] = gradOutput[{{2},{2},{}}]
+
+    local netF = nn.LinearAssociativeMemoryWriter(dimSize, "forward"):cuda()
+    local netFMasked = nn.LinearAssociativeMemoryWriter(dimSize, "forward"):cuda()
+    netFMasked:maskZero()
+    
+    local paramsF, gradParamsF = netF:getParameters()
+    local paramsFMask, gradParamsFMask = netFMasked:getParameters()
+    paramsF:copy(paramsFMask)
+
+    local outputFMask = netFMasked:forward(Xmask)
+    local gradInputFMask = netFMasked:backward(Xmask, gradOutputMask)
+
+    local outputF = netF:forward(X)
+    local gradInputF = netF:backward(X, gradOutput)
+
+    mytester:assertTensorEq(
+        outputF[{{1},{},{}}], outputFMask[{{1},{},{}}], precision)
+    mytester:assertTensorEq(
+        outputFMask[{{2},{1},{}}], torch.CudaTensor(1,1,dimSize):zero(), precision)
+    mytester:assertTensorEq(
+        outputFMask[{{3},{2},{}}], torch.CudaTensor(1,1,dimSize):zero(), precision)
+    mytester:assertTensorEq(
+        outputF[{{2},{1},{}}], outputFMask[{{3},{1},{}}], precision)
+    mytester:assertTensorEq(
+        outputF[{{2},{2},{}}], outputFMask[{{2},{2},{}}], precision)
+
+    mytester:assertTensorEq(
+        gradInputF[{{1},{},{}}], 
+        gradInputFMask[{{1},{},{}}], 
+        precision)
+    mytester:assertTensorEq(
+        gradInputFMask[{{2},{1},{}}], 
+        torch.Tensor(1,1,dimSize):zero():cuda(), 
+        precision)
+    mytester:assertTensorEq(
+        gradInputFMask[{{3},{2},{}}], 
+        torch.Tensor(1,1,dimSize):zero():cuda(), precision)
+    mytester:assertTensorEq(
+        gradInputF[{{2},{1},{}}], 
+        gradInputFMask[{{3},{1},{}}], 
+        precision)
+    mytester:assertTensorEq(
+        gradInputF[{{2},{2},{}}], 
+        gradInputFMask[{{2},{2},{}}], 
+        precision)
+    mytester:assertTensorEq(
+        gradParamsFMask, gradParamsF, precision)
+
+    local netB = nn.LinearAssociativeMemoryWriter(dimSize, "backward"):cuda()
+    local netBMasked = nn.LinearAssociativeMemoryWriter(dimSize, "backward"):cuda()
+    netBMasked:maskZero()
+    
+    local paramsB, gradParamsB = netB:getParameters()
+    local paramsBMask, gradParamsBMask = netBMasked:getParameters()
+    paramsB:copy(paramsBMask)
+
+    local outputBMask = netBMasked:forward(Xmask)
+    local gradInputBMask = netBMasked:backward(Xmask, gradOutputMask)
+
+    local outputB = netB:forward(X)
+    local gradInputB = netB:backward(X, gradOutput)
+
+    mytester:assertTensorEq(
+        outputB[{{1},{},{}}], outputBMask[{{1},{},{}}], precision)
+    mytester:assertTensorEq(
+        outputBMask[{{2},{1},{}}], torch.CudaTensor(1,1,dimSize):zero(), precision)
+    mytester:assertTensorEq(
+        outputBMask[{{3},{2},{}}], torch.CudaTensor(1,1,dimSize):zero(), precision)
+    mytester:assertTensorEq(
+        outputB[{{2},{1},{}}], outputBMask[{{3},{1},{}}], precision)
+    mytester:assertTensorEq(
+        outputB[{{2},{2},{}}], outputBMask[{{2},{2},{}}], precision)
+
+    mytester:assertTensorEq(
+        gradInputB[{{1},{},{}}], 
+        gradInputBMask[{{1},{},{}}], 
+        precision)
+    mytester:assertTensorEq(
+        gradInputBMask[{{2},{1},{}}], 
+        torch.CudaTensor(1,1,dimSize):zero(), 
+        precision)
+    mytester:assertTensorEq(
+        gradInputBMask[{{3},{2},{}}], 
+        torch.CudaTensor(1,1,dimSize):zero(), precision)
+    mytester:assertTensorEq(
+        gradInputB[{{2},{1},{}}], 
+        gradInputBMask[{{3},{1},{}}], 
+        precision)
+    mytester:assertTensorEq(
+        gradInputB[{{2},{2},{}}], 
+        gradInputBMask[{{2},{2},{}}], 
+        precision)
+
+    mytester:assertTensorEq(
+        gradParamsBMask, gradParamsB, precision)
+
+    local netA = nn.LinearAssociativeMemoryWriter(dimSize, "all"):cuda()
+    local netAMasked = nn.LinearAssociativeMemoryWriter(dimSize, "all"):cuda()
+    netAMasked:maskZero()
+    
+    local paramsA, gradParamsA = netA:getParameters()
+    local paramsAMask, gradParamsAMask = netAMasked:getParameters()
+    paramsA:copy(paramsAMask)
+
+    local outputAMask = netAMasked:forward(Xmask)
+    local gradInputAMask = netAMasked:backward(Xmask, gradOutputMask)
+
+    local outputA = netA:forward(X)
+    local gradInputA = netA:backward(X, gradOutput)
+
+    mytester:assertTensorEq(
+        outputA[{{1},{},{}}], outputAMask[{{1},{},{}}], precision)
+    mytester:assertTensorEq(
+        outputAMask[{{2},{1},{}}], torch.CudaTensor(1,1,dimSize):zero(), precision)
+    mytester:assertTensorEq(
+        outputAMask[{{3},{2},{}}], torch.CudaTensor(1,1,dimSize):zero(), precision)
+    mytester:assertTensorEq(
+        outputA[{{2},{1},{}}], outputAMask[{{3},{1},{}}], precision)
+    mytester:assertTensorEq(
+        outputA[{{2},{2},{}}], outputAMask[{{2},{2},{}}], precision)
+
+    mytester:assertTensorEq(
+        gradInputA[{{1},{},{}}], 
+        gradInputAMask[{{1},{},{}}], 
+        precision)
+    mytester:assertTensorEq(
+        gradInputAMask[{{2},{1},{}}], 
+        torch.CudaTensor(1,1,dimSize):zero(), 
+        precision)
+    mytester:assertTensorEq(
+        gradInputAMask[{{3},{2},{}}], 
+        torch.CudaTensor(1,1,dimSize):zero(), precision)
+    mytester:assertTensorEq(
+        gradInputA[{{2},{1},{}}], 
+        gradInputAMask[{{3},{1},{}}], 
+        precision)
+    mytester:assertTensorEq(
+        gradInputA[{{2},{2},{}}], 
+        gradInputAMask[{{2},{2},{}}], 
+        precision)
+    mytester:assertTensorEq(
+        gradParamsAMask, gradParamsA, precision)
+
+end
+
+
+
 function cumemtest.LinearAssociativeMemoryReader()
 
     local dimSize = 5
