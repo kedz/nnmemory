@@ -5,6 +5,98 @@ local precision_backward = 1e-2
 
 local mytester = torch.Tester()
 
+function cumemtest.PriorityQueueSimpleDecoder()
+    local dimSize = 5
+    local batchSize = 2
+    local maxSteps = 3
+
+    local Xmask = torch.rand(maxSteps, batchSize, dimSize):cuda()
+    local Ymask = torch.Tensor(maxSteps, batchSize, dimSize):zero():cuda()
+    local X = torch.rand(2, batchSize, dimSize):cuda()
+    local Y = torch.rand(2, batchSize, dimSize):cuda()
+    Ymask[{{1,2},{},{}}] = Y
+
+    Xmask[2][1]:fill(0)
+    Xmask[3][2]:fill(0)
+    X[1]:copy(Xmask[1])
+    X[2][1] = Xmask[3][1]
+    X[2][2] = Xmask[2][2]
+
+    piMask = torch.CudaTensor(maxSteps, batchSize):fill(0)
+    pi = torch.rand(2, batchSize):cuda()
+    
+    Z = torch.sum(torch.exp(pi), 1):expand(2,batchSize)
+    pi = torch.cdiv(torch.exp(pi) , Z)
+    piMask[{{1},{}}] = pi[{{1},{}}]
+    piMask[{{3},{1}}] = pi[{{2},{1}}]
+    piMask[{{2},{2}}] = pi[{{2},{2}}]
+    gradOutputMask = torch.rand(3, batchSize, dimSize):cuda()
+    gradOutput = gradOutputMask[{{1,2},{},{}}]
+
+    net = nn.PriorityQueueSimpleDecoder(dimSize)
+    net:cuda()
+    netMask = nn.PriorityQueueSimpleDecoder(dimSize):maskZero()
+    netMask:cuda()
+    local params, gradParams = net:getParameters()
+    local paramsMasked, gradParamsMasked = netMask:getParameters()
+    params:copy(paramsMasked)
+    net:zeroGradParameters()
+    netMask:zeroGradParameters()
+
+    local outputMasked = netMask:forward({Xmask, piMask, Ymask})
+    local output = net:forward({X, pi, Y})
+    local gradInputMasked = netMask:backward(
+        {Xmask, piMask, Ymask}, gradOutputMask)
+    local gradInput = net:backward({X, pi, Y}, gradOutput)
+
+    mytester:assertTensorEq(output, outputMasked[{{1,2},{},{}}])
+    mytester:assertTensorEq(
+        outputMasked:select(1,3), torch.CudaTensor(batchSize, dimSize):zero())
+
+    mytester:assertTensorEq(gradInput[3], gradInputMasked[3][{{1,2},{},{}}])
+    mytester:assertTensorEq(
+        torch.CudaTensor(batchSize,dimSize):zero(), 
+        gradInputMasked[3]:select(1,3))
+
+    mytester:assertTensorEq(
+        gradInput[1][{{1},{},{}}], 
+        gradInputMasked[1][{{1},{},{}}])
+
+    mytester:assertTensorEq(
+        gradInput[1][{{2},{1},{}}], 
+        gradInputMasked[1][{{3},{1},{}}])
+    mytester:assertTensorEq(
+        gradInput[1][{{2},{2},{}}], 
+        gradInputMasked[1][{{2},{2},{}}])
+    mytester:assertTensorEq(
+        torch.CudaTensor(1,1, dimSize):zero(), 
+        gradInputMasked[1][{{2},{1},{}}])
+    mytester:assertTensorEq(
+        torch.CudaTensor(1,1, dimSize):zero(), 
+        gradInputMasked[1][{{3},{2},{}}])
+
+    
+    mytester:assertTensorEq(
+        gradInput[2][{{1},{}}], 
+        gradInputMasked[2][{{1},{}}])
+    mytester:assertTensorEq(
+        gradInput[2][{{2},{1}}], 
+        gradInputMasked[2][{{3},{1}}])
+    mytester:assertTensorEq(
+        gradInput[2][{{2},{2}}], 
+        gradInputMasked[2][{{2},{2}}])
+    mytester:assertTensorEq(
+        torch.CudaTensor(1,1):zero(), 
+        gradInputMasked[2][{{2},{1}}])
+    mytester:assertTensorEq(
+        torch.CudaTensor(1,1):zero(), 
+        gradInputMasked[2][{{3},{2}}])
+
+    mytester:assertTensorEq(gradParams, gradParamsMasked)
+
+end
+
+
 
 function cumemtest.MemoryCell()
     local dimSize = 5

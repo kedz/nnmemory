@@ -81,6 +81,24 @@ local function testBackward(protoModule, input, maxError)
     end
 end
 
+function cumemtest.PriorityQueueSimpleDecoder()
+    local dimSize = 10
+    local batchSize = 3
+    local encoderSize = 4
+    local decoderSize = 5
+    local M = torch.rand(encoderSize, batchSize, dimSize)
+    local Y = torch.rand(decoderSize, batchSize, dimSize)
+    local pi = torch.rand(encoderSize, batchSize)
+    local Z = torch.exp(pi, pi):sum(1):expand(encoderSize, batchSize)
+    torch.cdiv(pi, pi, Z)
+    pi, _ = torch.sort(pi, 1, true)
+
+    local qdec = nn.PriorityQueueSimpleDecoder(dimSize)
+    testForward(qdec, {M, pi, Y}, precision_forward)
+    testBackward(qdec, {M, pi, Y}, precision_backward)
+
+end
+
 function cumemtest.LinearAssociativeMemoryWriterP()
     local encoderSize = 5
     local dimSize = 10
