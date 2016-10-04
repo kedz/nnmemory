@@ -5,6 +5,77 @@ local precision_backward = 1e-2
 
 local mytester = torch.Tester()
 
+
+function cumemtest.MemoryCell()
+    local dimSize = 5
+    local batchSize = 2
+    local maxSteps = 3
+
+    local Xmask = torch.rand(maxSteps, batchSize, dimSize):cuda()
+    local X = torch.rand(2, batchSize, dimSize):cuda()
+
+    Xmask[2][1]:fill(0)
+    Xmask[3][2]:fill(0)
+    X[1]:copy(Xmask[1])
+    X[2][1] = Xmask[3][1]
+    X[2][2] = Xmask[2][2]
+
+
+    local cellMasked = nn.MemoryCell():add(
+        nn.LinearAssociativeMemoryWriterP(dimSize))
+    cellMasked:maskZero()
+
+    local netMasked = nn.Sequential():add(cellMasked):add(
+        nn.SortOnKey(true)):add(
+        nn.ParallelTable():add(nn.Identity()):add(nn.Sequential():add(
+            nn.Replicate(dimSize, 3, 2)))
+        ):add(nn.CMulTable()):add(nn.Sum(1,3,false))
+    netMasked:cuda()
+
+    local cell = nn.MemoryCell():add(
+        nn.LinearAssociativeMemoryWriterP(dimSize))
+
+    local net = nn.Sequential():add(cell):add(
+        nn.SortOnKey(true)):add(
+        nn.ParallelTable():add(nn.Identity()):add(nn.Sequential():add(
+            nn.Replicate(dimSize, 3, 2)))
+        ):add(nn.CMulTable()):add(nn.Sum(1,3,false))
+    net:cuda()
+
+
+    local gradOutput = torch.rand(batchSize, dimSize):cuda()
+
+
+    local params, gradParams = net:getParameters()
+    local paramsMasked, gradParamsMasked = netMasked:getParameters()
+    params:copy(paramsMasked)
+
+    net:zeroGradParameters()
+    netMasked:zeroGradParameters()
+
+    local outputMasked = netMasked:forward(Xmask)
+    local gradInputMasked = netMasked:backward(Xmask, gradOutput)
+    local output = net:forward(X)
+    local gradInput = net:backward(X, gradOutput)
+
+
+
+    mytester:assertTensorEq(output, outputMasked)
+    mytester:assertTensorEq(gradParamsMasked, gradParams, precision)
+
+    mytester:assertTensorEq(gradInput[1], gradInputMasked[1])
+    mytester:assertTensorEq(gradInput[2][1], gradInputMasked[3][1])
+    mytester:assertTensorEq(gradInput[2][2], gradInputMasked[2][2])
+    mytester:assertTensorEq(
+        gradInputMasked[2][1], torch.zeros(dimSize):cuda())
+    mytester:assertTensorEq(
+        gradInputMasked[3][2], torch.zeros(dimSize):cuda())
+
+end
+
+
+
+
 function cumemtest.LinearAssociativeMemoryWriter()
 
     local dimSize = 5

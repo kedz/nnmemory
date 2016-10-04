@@ -81,6 +81,29 @@ local function testBackward(protoModule, input, maxError)
     end
 end
 
+function cumemtest.LinearAssociativeMemoryWriterP()
+    local encoderSize = 5
+    local dimSize = 10
+    local batchSize = 3
+
+    local X = torch.rand(encoderSize, batchSize, dimSize)
+
+    local netF = nn.LinearAssociativeMemoryWriterP(dimSize, "forward")
+    testForward(netF, X, precision_forward)
+    testBackward(netF, X, precision_backward)
+
+    local netB = nn.LinearAssociativeMemoryWriterP(dimSize, "backward")
+    testForward(netB, X, precision_forward)
+    testBackward(netB, X, precision_backward)
+
+    local netA = nn.LinearAssociativeMemoryWriterP(dimSize, "all")
+    testForward(netA, X, precision_forward)
+    testBackward(netA, X, precision_backward)
+
+end
+
+
+
 function cumemtest.LinearAssociativeMemoryWriter()
     local encoderSize = 5
     local dimSize = 10
@@ -90,15 +113,15 @@ function cumemtest.LinearAssociativeMemoryWriter()
 
     local netF = nn.LinearAssociativeMemoryWriter(dimSize, "forward")
     testForward(netF, X, precision_forward)
-    testBackward(netF, X, precision_forward)
+    testBackward(netF, X, precision_backward)
 
     local netB = nn.LinearAssociativeMemoryWriter(dimSize, "backward")
     testForward(netB, X, precision_forward)
-    testBackward(netB, X, precision_forward)
+    testBackward(netB, X, precision_backward)
 
     local netA = nn.LinearAssociativeMemoryWriter(dimSize, "all")
     testForward(netA, X, precision_forward)
-    testBackward(netA, X, precision_forward)
+    testBackward(netA, X, precision_backward)
 
 end
 
@@ -163,8 +186,7 @@ function cumemtest.MemoryCell()
     local dimSize = 10
     local X = torch.rand(encoderSize, batchSize, dimSize)
 
-    local cell = nn.MemoryCell():add(nn.LinearMemoryWriter(dimSize)):add(
-        nn.BilinearAttentionMemoryWriter(dimSize))
+    local cell = nn.MemoryCell():add(nn.LinearAssociativeMemoryWriterP(dimSize))
     local net = nn.Sequential():add(cell):add(nn.SortOnKey(true)):add(
     nn.ParallelTable():add(nn.Identity()):add(nn.Sequential():add(
         nn.Replicate(dimSize, 3, 2)))
@@ -173,52 +195,6 @@ function cumemtest.MemoryCell()
 
     testForward(net, X, precision_forward)
     testBackward(net, X, precision_backward)
-
-
-    local batchSize = 2
-    local maxSteps = 3
-    local X = torch.rand(maxSteps, batchSize, dimSize):cuda()
-    local Y = torch.rand(2, batchSize, dimSize):cuda()
-
-    X[2][1]:fill(0)
-    X[3][2]:fill(0)
-    Y[1]:copy(X[1])
-    Y[2][1] = X[3][1]
-    Y[2][2] = X[2][2]
-
-
-    local cell = nn.MemoryCell():add(nn.LinearMemoryWriter(dimSize)):add(
-        nn.LinearMemoryWriter(dimSize))
-    cell:maskZero()
-
-    local net = nn.Sequential():add(cell):add(nn.SortOnKey(true)):add(
-    nn.ParallelTable():add(nn.Identity()):add(nn.Sequential():add(
-        nn.Replicate(dimSize, 3, 2)))
-    ):add(nn.CMulTable()):add(nn.Sum(1,3,false)):cuda()
-
-    local G = torch.rand(batchSize, dimSize):cuda()
-
-    local params, gradParams = net:getParameters()
-
-    net:zeroGradParameters()
-    local outputX = net:forward(X)
-    local gradX = net:backward(X, G):clone()
-    local gradXparams = gradParams:clone()
-
-    net:zeroGradParameters()
-    local outputY = net:forward(Y)
-    local gradY = net:backward(Y, G):clone()
-    local gradYparams = gradParams:clone()
-
-    mytester:asserteq(outputX, outputY)
-    mytester:assertTensorEq(gradX[1], gradY[1])
-    mytester:assertTensorEq(gradX[3][1], gradY[2][1])
-    mytester:assertTensorEq(gradX[2][1], torch.zeros(dimSize):cuda())
-    mytester:assertTensorEq(gradX[3][2], torch.zeros(dimSize):cuda())
-    mytester:assertTensorEq(gradX[2][2], gradY[2][2])
-    mytester:assertTensorEq(gradXparams, gradYparams, 1e-7)
-
-
 
 end
 
