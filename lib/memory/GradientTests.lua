@@ -7,6 +7,63 @@ local jac
 local memtest = torch.TestSuite()
 
 
+function memtest.LinearAssociativeMemoryWriterP()
+
+    local dimSize = 10
+    local batchSize = 3
+    local encoderSize = 7
+
+    local X = torch.rand(encoderSize, batchSize, dimSize)
+    local netF = nn.LinearAssociativeMemoryWriterP(dimSize, "forward")
+
+    local params, gradParams = netF:getParameters()
+
+    local err = nn.Jacobian.testJacobian(
+        netF, X)
+    mytester:assertlt(err, precision, 
+       "LinearAssociativeMemoryWriterP (forward) input gradient is incorrect.")
+
+    netF:zeroGradParameters()
+    local errParams = nn.Jacobian.testJacobianParameters(
+        netF, X, params, gradParams)
+    mytester:assertlt(errParams, precision,
+       "LinearAssociativeMemoryWriterP (forward) param gradient is incorrect.")
+
+    local netB = nn.LinearAssociativeMemoryWriterP(dimSize, "backward")
+
+    local params, gradParams = netB:getParameters()
+
+    local err = nn.Jacobian.testJacobian(
+        netB, X)
+    mytester:assertlt(err, precision, 
+       "LinearAssociativeMemoryWriterP (backward) input gradient is incorrect.")
+
+    netB:zeroGradParameters()
+    local errParams = nn.Jacobian.testJacobianParameters(
+        netB, X, params, gradParams)
+    mytester:assertlt(errParams, precision,
+       "LinearAssociativeMemoryWriterP (backward) param gradient is incorrect.")
+
+    local netA = nn.LinearAssociativeMemoryWriterP(dimSize, "all")
+
+    local params, gradParams = netA:getParameters()
+
+    local err = nn.Jacobian.testJacobian(
+        netA, X)
+    mytester:assertlt(err, precision, 
+       "LinearAssociativeMemoryWriterP (all) input gradient is incorrect.")
+
+    netA:zeroGradParameters()
+    local errParams = nn.Jacobian.testJacobianParameters(
+        netA, X, params, gradParams)
+    mytester:assertlt(errParams, precision,
+       "LinearAssociativeMemoryWriterP (all) param gradient is incorrect.")
+
+end
+
+
+
+
 function memtest.LinearAssociativeMemoryWriter()
 
     local dimSize = 10
@@ -307,8 +364,8 @@ function memtest.MemoryCell()
     local batchSize = 2
     local dimSize = 10
     local X = torch.rand(encoderSize, batchSize, dimSize)
-    local cell = nn.MemoryCell():add(nn.LinearMemoryWriter(dimSize)):add(
-        nn.BilinearAttentionMemoryWriter(dimSize))
+    local cell = nn.MemoryCell():add(
+        nn.LinearAssociativeMemoryWriterP(dimSize))
 
     local net = nn.Sequential():add(cell):add(nn.SortOnKey(true)):add(
         nn.ParallelTable():add(nn.Identity()):add(nn.Sequential():add(
@@ -327,50 +384,6 @@ function memtest.MemoryCell()
     mytester:assertlt(
         errParam, precision,
         "MemoryCell parameter gradient not computed correctly.")
-
-    local batchSize = 2
-    local maxSteps = 3
-
-    local X = torch.rand(maxSteps, batchSize, dimSize)
-    local Y = torch.rand(2, batchSize, dimSize)
-
-    X[2][1]:fill(0)
-    X[3][2]:fill(0)
-    Y[1]:copy(X[1])
-    Y[2][1] = X[3][1]
-    Y[2][2] = X[2][2]
-
-
-    local cell = nn.MemoryCell():add(nn.LinearMemoryWriter(dimSize)):add(
-        nn.LinearMemoryWriter(dimSize))
-    cell:maskZero()
-
-    local net = nn.Sequential():add(cell):add(nn.SortOnKey(true)):add(
-    nn.ParallelTable():add(nn.Identity()):add(nn.Sequential():add(
-        nn.Replicate(dimSize, 3, 2)))
-    ):add(nn.CMulTable()):add(nn.Sum(1,3,false))
-
-    local G = torch.rand(batchSize, dimSize)
-
-    local params, gradParams = net:getParameters()
-
-    net:zeroGradParameters()
-    local outputX = net:forward(X)
-    local gradX = net:backward(X, G):clone()
-    local gradXparams = gradParams:clone()
-
-    net:zeroGradParameters()
-    local outputY = net:forward(Y)
-    local gradY = net:backward(Y, G):clone()
-    local gradYparams = gradParams:clone()
-
-    mytester:asserteq(outputX, outputY)
-    mytester:assertTensorEq(gradX[1], gradY[1])
-    mytester:assertTensorEq(gradX[3][1], gradY[2][1])
-    mytester:assertTensorEq(gradX[2][1], torch.zeros(dimSize))
-    mytester:assertTensorEq(gradX[3][2], torch.zeros(dimSize))
-    mytester:assertTensorEq(gradX[2][2], gradY[2][2])
-    mytester:assertTensorEq(gradXparams, gradYparams)
 
 end
 

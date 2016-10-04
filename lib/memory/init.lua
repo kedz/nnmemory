@@ -20,6 +20,7 @@ torch.include('memory', 'PriorityQueueSimpleDecoder.lua')
 
 torch.include('memory', 'LinearMemoryWriter.lua')
 torch.include('memory', 'LinearAssociativeMemoryWriter.lua')
+torch.include('memory', 'LinearAssociativeMemoryWriterP.lua')
 torch.include('memory', 'BilinearAttentionMemoryWriter.lua')
 
 
