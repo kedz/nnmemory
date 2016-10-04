@@ -45,6 +45,11 @@ function PriorityQueueSimpleDecoder:__init(inputSize)
     self.buffer3 = torch.Tensor()
     self.buffer4 = torch.Tensor()
     self.buffer5 = torch.Tensor()
+
+    self.maskBuffer1 = torch.ByteTensor()
+    self.maskBuffer2 = torch.ByteTensor()
+    self.maskBuffer3 = torch.Tensor()
+    self.maskBuffer4 = torch.Tensor()
    
     self.isMaskZero = false
 
@@ -60,9 +65,9 @@ function PriorityQueueSimpleDecoder:reset()
     self.weight_read_in:uniform(-1, 1)
     self.weight_read_h:uniform(-1, 1)
     self.weight_read_b:fill(1) -- initial bias is to read
-    self.weight_forget_in:uniform(-1, 1)
-    self.weight_forget_h:uniform(-1, 1)
-    self.weight_forget_b:fill(-3) -- initial bias is to remember
+    self.weight_forget_in:uniform(0, 1)
+    self.weight_forget_h:uniform(0, 1)
+    self.weight_forget_b:fill(-2) -- initial bias is to remember
 
     self:zeroGradParameters()
 
@@ -148,7 +153,7 @@ function PriorityQueueSimpleDecoder:updateOutput(input)
         local Rt = R[t]:view(B,1,1)
         local Ft = F[t]:view(B,1,1)
         local output_t = output[t]
-
+        
         -- Compute remember value at step t        
         -- sigmoid(W_r_in * Y_t + W_r_h * h_tm1 + b_r)
         torch.baddbmm(Rt, b_r, W_r_in, yt)
@@ -175,6 +180,7 @@ function PriorityQueueSimpleDecoder:updateOutput(input)
                     Rt[mask[m][1]]:fill(0)
                 end
             end
+
         end
 
         local rhocum_t = rhocum[t]
@@ -206,7 +212,6 @@ function PriorityQueueSimpleDecoder:updateOutput(input)
         torch.sum(output_t:view(1,B,D), self.buffer1, 1)
 
     end
-   
     return self.output
 end
 
@@ -225,6 +230,73 @@ function PriorityQueueSimpleDecoder:updateGradInput(input, gradOutput)
     local grad_rho_wrt_r = torch.cmul(
         torch.gt(self.P, self.rhocum), 
         torch.gt(self.rhocum, 0)):typeAs(self.output)
+
+
+    if self.prevMemSize ~= Tmem then
+        self.lt_mask = torch.tril(torch.ByteTensor(Tmem, Tmem):fill(1), -1)
+        self.lt_mask = self.lt_mask:view(1, 1, Tmem, Tmem):expand(
+            Tdec, B, Tmem, Tmem)
+        self.diag_mask = torch.ByteTensor(Tmem, Tmem):zero()
+        for i=1,Tmem do self.diag_mask[i][i] = 1 end 
+        self.diag_mask = self.diag_mask:view(1, 1, Tmem, Tmem):expand(
+            Tdec, B, Tmem, Tmem)
+
+        self.grad_wrt_pi_vals = torch.Tensor(Tmem, Tmem):typeAs(M):zero()
+        self.grad_wrt_pi_vals[1][1] = 1
+        for i=2,Tmem do
+            self.grad_wrt_pi_vals[i][{{1,i-1}}] = -1
+            self.grad_wrt_pi_vals[i][i] = 1
+        end
+
+        self.prevMemSize = Tmem
+    end
+
+    local gtmask = torch.gt(self.rhocum, 0)
+    self.maskBuffer1 = self.maskBuffer1:typeAs(gtmask)
+    self.maskBuffer2 = self.maskBuffer2:typeAs(gtmask)
+    self.diag_mask = self.diag_mask:typeAs(gtmask)
+    self.lt_mask = self.lt_mask:typeAs(gtmask)
+
+    local rho_pi_lt_mask = torch.cmul(
+        self.maskBuffer1,
+        torch.gt(self.P, self.rhocum):cmul(gtmask):view(
+            Tdec, Tmem, B, 1):expand(Tdec, Tmem, B, Tmem):permute(1,3,2,4),
+        self.lt_mask)
+
+    local rho_pi_d_mask = torch.cmul(
+        self.maskBuffer2,
+        torch.lt(self.P, self.rhocum):cmul(
+            torch.gt(self.P, 0)):view(
+                Tdec, Tmem, B, 1):expand(Tdec, Tmem, B, Tmem):permute(1,3,2,4),
+        self.diag_mask)
+
+    local rho_pi_mask = rho_pi_lt_mask:add(rho_pi_d_mask)
+        
+    local grad_rho_wrt_pi = torch.cmul(
+        self.maskBuffer3,
+        self.grad_wrt_pi_vals:view(1,1,Tmem, Tmem):expand(Tdec, B, Tmem, Tmem), 
+        rho_pi_mask:typeAs(M))
+
+    local phi_pi_lt_mask = torch.cmul(
+        self.maskBuffer1,
+        torch.gt(self.P, self.phicum):cmul(torch.gt(self.phicum, 0)):view(
+            Tdec, Tmem, B, 1):expand(Tdec, Tmem, B, Tmem):permute(1,3,2,4),
+        self.lt_mask)
+
+    local phi_pi_d_mask = torch.cmul(
+        self.maskBuffer2,
+        torch.lt(self.P, self.phicum):cmul(
+            torch.gt(self.P, 0)):view(
+                Tdec, Tmem, B, 1):expand(Tdec, Tmem, B, Tmem):permute(1,3,2,4),
+        self.diag_mask)
+
+    local phi_pi_mask = phi_pi_lt_mask:add(phi_pi_d_mask)
+        
+    local grad_phi_wrt_pi = torch.cmul(
+        self.maskBuffer4,
+        self.grad_wrt_pi_vals:view(1,1,Tmem, Tmem):expand(Tdec, B, Tmem, Tmem), 
+        phi_pi_mask:typeAs(M))
+
 
     local one_minus_r = self.buffer1:resizeAs(self.R):fill(1) 
     one_minus_r:csub(self.R)
@@ -248,7 +320,6 @@ function PriorityQueueSimpleDecoder:updateGradInput(input, gradOutput)
     local grad_r_t_wrt_h_t = self.weight_read_h:view(1,D):expand(B,D)
 
     local grad_h_tp1_wrt_h_t = self.grad_h_tp1_wrt_h_t:resize(B,D):zero()
-
 
     local grad_pi_tp1 = self.grad_pi_tp1:resize(Tmem,B):zero()
 
@@ -339,78 +410,25 @@ function PriorityQueueSimpleDecoder:updateGradInput(input, gradOutput)
             grad_r_t_wrt_h_t)
 
 
-        local rhocum_t = self.rhocum[t]
         local phicum_t = self.phicum[t]
-
-        -- path G
-        local grad_o_t_and_h_tp1_wrt_pi_t = 
-            self.buffer1:resize(Tmem,B):zero()
-        for j=1,Tmem do
-            local grad_rho_j_wrt_pi_j = self.buffer4:resizeAs(pi_t[j])
-            grad_rho_j_wrt_pi_j:copy(
-                torch.cmul(
-                torch.le(pi_t[j], rhocum_t[j]),
-                torch.gt(rhocum_t[j], 0))) --:typeAs(self.output)
-            grad_o_t_and_h_tp1_wrt_pi_t[j]:add(
-                torch.cmul(
-                    self.buffer4,
-                    grad_rho_j_wrt_pi_j,
-                    torch.sum(
-                        self.buffer3,
-                        grad_o_t_and_h_tp1_wrt_rho_t[j], 
-                        2):view(B)))
-            for i=j+1,Tmem do
-                local grad_rho_i_wrt_pi_j = self.buffer4:resizeAs(pi_t[i])
-                grad_rho_i_wrt_pi_j:copy(
-                    torch.cmul(
-                    torch.gt(pi_t[i], rhocum_t[i]),
-                    torch.gt(rhocum_t[i], 0))):mul(-1)
-                    
-                grad_o_t_and_h_tp1_wrt_pi_t[j]:add(
-                    torch.cmul(
-                        self.buffer4,
-                        grad_rho_i_wrt_pi_j,
-                        torch.sum(
-                            self.buffer3,
-                            grad_o_t_and_h_tp1_wrt_rho_t[i],
-                            2):view(B)))
-                    
-            end
-        end
-      
+        local grad_o_t_and_h_tp1_wrt_pi_t = torch.bmm(
+            self.buffer1:resize(B, 1, Tmem),
+            grad_o_t_and_h_tp1_wrt_rho_t:sum(3):permute(2,3,1),
+            grad_rho_wrt_pi[t]):squeeze(2):t()
 
         -- path H
         local grad_pi_tp1_wrt_phi_t = 
             torch.mul(
                 self.buffer2,
                 grad_pi_tp1, -1.0)
+        
         local grad_pi_tp1_wrt_pi_t = 
-            self.buffer3:resize(Tmem,B):zero()
-        for j=1,Tmem do
-            local grad_phi_j_wrt_pi_j = self.buffer4:resizeAs(pi_t[j]):copy(
-                torch.cmul(
-                    torch.le(pi_t[j], phicum_t[j]),
-                    torch.gt(phicum_t[j], 0)))
-            grad_pi_tp1_wrt_pi_t[j]:add(
-                torch.cmul(
-                    self.buffer5,
-                    grad_pi_tp1_wrt_phi_t[j],
-                    grad_phi_j_wrt_pi_j))
-            for i=j+1,Tmem do
-                local grad_phi_i_wrt_pi_j = self.buffer4:copy( 
-                    torch.cmul(
-                        torch.gt(pi_t[i], phicum_t[i]),
-                        torch.gt(phicum_t[i], 0))):mul(-1)
-                    
-                grad_pi_tp1_wrt_pi_t[j]:add(
-                    torch.cmul(
-                        self.buffer5,
-                        grad_phi_i_wrt_pi_j,
-                        grad_pi_tp1_wrt_phi_t[i]))
-                    
-            end
-        end
- 
+            torch.bmm( 
+                self.buffer3:resize(B, 1, Tmem),
+                grad_pi_tp1_wrt_phi_t:view(Tmem, 1, B):permute(3,2,1),
+                grad_phi_wrt_pi[t])
+        grad_pi_tp1_wrt_pi_t = grad_pi_tp1_wrt_pi_t:squeeze(2):t()
+
         grad_pi_tp1:add(grad_o_t_and_h_tp1_wrt_pi_t)
 
         --path I
@@ -465,6 +483,10 @@ function PriorityQueueSimpleDecoder:updateGradInput(input, gradOutput)
         grad_pi_tp1:add(grad_pi_tp1_wrt_pi_t)
 
 
+    end
+
+    if self.isMaskZero then
+        grad_pi_tp1[torch.eq(M:select(3,1), 0)] = 0
     end
 
     self.gradInput = {grad_M, grad_pi_tp1, grad_Y}
