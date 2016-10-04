@@ -153,7 +153,7 @@ function PriorityQueueSimpleDecoder:updateOutput(input)
         local Rt = R[t]:view(B,1,1)
         local Ft = F[t]:view(B,1,1)
         local output_t = output[t]
-
+        
         -- Compute remember value at step t        
         -- sigmoid(W_r_in * Y_t + W_r_h * h_tm1 + b_r)
         torch.baddbmm(Rt, b_r, W_r_in, yt)
@@ -180,6 +180,7 @@ function PriorityQueueSimpleDecoder:updateOutput(input)
                     Rt[mask[m][1]]:fill(0)
                 end
             end
+
         end
 
         local rhocum_t = rhocum[t]
@@ -211,7 +212,6 @@ function PriorityQueueSimpleDecoder:updateOutput(input)
         torch.sum(output_t:view(1,B,D), self.buffer1, 1)
 
     end
-   
     return self.output
 end
 
@@ -251,9 +251,15 @@ function PriorityQueueSimpleDecoder:updateGradInput(input, gradOutput)
         self.prevMemSize = Tmem
     end
 
+    local gtmask = torch.gt(self.rhocum, 0)
+    self.maskBuffer1 = self.maskBuffer1:typeAs(gtmask)
+    self.maskBuffer2 = self.maskBuffer2:typeAs(gtmask)
+    self.diag_mask = self.diag_mask:typeAs(gtmask)
+    self.lt_mask = self.lt_mask:typeAs(gtmask)
+
     local rho_pi_lt_mask = torch.cmul(
         self.maskBuffer1,
-        torch.gt(self.P, self.rhocum):cmul(torch.gt(self.rhocum, 0)):view(
+        torch.gt(self.P, self.rhocum):cmul(gtmask):view(
             Tdec, Tmem, B, 1):expand(Tdec, Tmem, B, Tmem):permute(1,3,2,4),
         self.lt_mask)
 
@@ -478,6 +484,11 @@ function PriorityQueueSimpleDecoder:updateGradInput(input, gradOutput)
 
 
     end
+
+    if self.isMaskZero then
+        grad_pi_tp1[torch.eq(M:select(3,1), 0)] = 0
+    end
+
     self.gradInput = {grad_M, grad_pi_tp1, grad_Y}
 
     return self.gradInput
