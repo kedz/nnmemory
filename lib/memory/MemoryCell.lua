@@ -27,7 +27,8 @@ end
 function MemoryCell:updateOutput(input)
     self.activation = self.net:forward(input)
     if self.isMaskZero then
-        self.activation[torch.eq(input[{{},{},{1,1}}], 0)] = -math.huge
+        self.mask = torch.eq(input[{{},{},{1,1}}], 0)
+        self.activation[self.mask] = -math.huge
     end
     self.activation_normalized = self.sm:forward(self.activation)
     self.output = {input, self.activation_normalized}
@@ -35,8 +36,20 @@ function MemoryCell:updateOutput(input)
 end
 
 function MemoryCell:updateGradInput(input, gradOutput)
-    local gradSoftMax = self.sm:updateGradInput(self.activation, gradOutput[2])
-    local gradWriter = self.net:updateGradInput(input, gradSoftMax)
+    local maxSteps = input:size(1)
+    local batchSize = input:size(2)
+    local dimSize = input:size(3)
+    if self.isMaskZero then
+        gradOutput[1][self.mask:expand(maxSteps,batchSize,dimSize)] = 0
+        gradOutput[2][self.mask] = 0
+    end
+
+    local gradSoftMax = self.sm:backward(self.activation, gradOutput[2])
+    local gradWriter = self.net:backward(input, gradSoftMax)
+    if self.isMaskZero then
+        gradWriter[self.mask:expand(maxSteps,batchSize,dimSize)] = 0
+    end
+
     torch.add(self.gradInput, gradWriter, gradOutput[1]) 
     return self.gradInput
 end
