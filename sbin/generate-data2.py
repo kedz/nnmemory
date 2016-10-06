@@ -58,7 +58,7 @@ def generate_data(output_dir, train_size, test_size,
             train_data = generate_train(num_topics, vocab_size)
             f.write(train_data)
     with open(test_path, "w") as f: 
-        for i in range(train_size):
+        for i in range(test_size):
             test_data = generate_test(num_topics, vocab_size)
             f.write(test_data)
 
