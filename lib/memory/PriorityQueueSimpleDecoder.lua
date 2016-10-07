@@ -1,9 +1,12 @@
 local PriorityQueueSimpleDecoder, Parent = 
     torch.class('nn.PriorityQueueSimpleDecoder', 'nn.Module')
 
-function PriorityQueueSimpleDecoder:__init(inputSize)
+function PriorityQueueSimpleDecoder:__init(inputSize, readBiasInit, 
+        forgetBiasInit)
     Parent.__init(self)
     self.D = inputSize
+    self.readBiasInit = readBiasInit
+    self.forgetBiasInit = forgetBiasInit
 
     self.weight_read_in = torch.Tensor():resize(1, 1, inputSize)
     self.grad_read_in = torch.Tensor():resizeAs(self.weight_read_in)
@@ -62,13 +65,21 @@ function PriorityQueueSimpleDecoder:maskZero()
 end
 
 function PriorityQueueSimpleDecoder:reset()
+
     self.weight_read_in:uniform(-1, 1)
     self.weight_read_h:uniform(-1, 1)
-    self.weight_read_b:fill(1) -- initial bias is to read
+    if self.readBiasInit ~= nil then
+        self.weight_read_b:fill(self.readBiasInit)
+    else
+        self.weight_read_b:uniform(-1,1)
+    end
     self.weight_forget_in:uniform(0, 1)
     self.weight_forget_h:uniform(0, 1)
-    self.weight_forget_b:fill(-2) -- initial bias is to remember
-
+    if self.forgetBiasInit ~= nil then
+        self.weight_forget_b:fill(self.forgetBiasInit)
+    else
+        self.weight_forget_b:uniform(-1,1)
+    end
     self:zeroGradParameters()
 
 end
