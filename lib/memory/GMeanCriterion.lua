@@ -5,20 +5,34 @@ function GMeanCriterion:__init(weight)
     self.weight = weight
     self.gradOutput = torch.Tensor(1):fill(1)
 
-    self.mod = nn.Sequential()
-    self.mod:add(nn.Log())
-    self.mod:add(nn.Mean(2))
+
+    self.mod = nn.Sequential():add(
+        nn.ParallelTable():add(
+            nn.Sequential():add(
+                nn.Log()):add(
+                nn.Sum(2))):add(
+            nn.Identity())):add(
+        nn.CMulTable())
+        
     self.mod:add(nn.Exp())
     self.mod:add(nn.Sum())
     self.mod:add(nn.MulConstant(weight))
 end
 
 function GMeanCriterion:updateOutput(input, target)
-    self.output = self.mod:forward(input)[1]
+    local mask = torch.eq(input, 0)
+    input[mask] = 1.0
+    local denom = (input:size(2) - mask:typeAs(input):sum(2)):squeeze():pow(-1)
+    self.output = self.mod:forward({input, denom})
+    input[mask] = 0.0
+  
+    self.mask = mask 
+    self.denom = denom 
     return self.output
 end
 
 function GMeanCriterion:updateGradInput(input, target)
-    self.gradInput = self.mod:backward(input, self.gradOutput)
+    self.gradInput = self.mod:backward({input, self.denom}, self.gradOutput)[1]
+    self.gradInput[self.mask] = 0.0
     return self.gradInput
 end
