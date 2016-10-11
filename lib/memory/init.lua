@@ -33,6 +33,8 @@ torch.include('memory', 'MaskTests.lua')
 torch.include('memory', 'CudaTests.lua')
 torch.include('memory', 'CudaMaskTests.lua')
 
+torch.include('memory', 'GMeanCriterion.lua')
+
 -- -- recurrent modules
 -- torch.include('rnn', 'LookupTableMaskZero.lua')
 -- torch.include('rnn', 'MaskZero.lua')
