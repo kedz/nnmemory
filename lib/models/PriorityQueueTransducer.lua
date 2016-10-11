@@ -170,5 +170,52 @@ function PriorityQueueTransducer:trainPriorityQueue(encIn, decIn, decOut)
 end
 
 
+function PriorityQueueTransducer:info(encIn, decIn, decOut)
+    print(encIn, decIn, decOut)
+    local input = {encIn:t(), decIn:t()}
+    local output = decOut:t()
+    self.priorityQueueNet:clearState() 
+    local outputPred = self.priorityQueueNet:forward(input) 
+    local indicesInverted = {}
+    for q=1,self.numQueues do
+        local indS = self.queueEncoders[q]:get(1):get(1):get(2).indices_sorted
+        local _, indInv = torch.sort(indS, 1)
+        indicesInverted[q] = indS
+    end
+    myInfo = {}
+    for b=1,encIn:size(1) do
+        myInfo[b] = {}
+        for q=1,self.numQueues do
+            myInfo[b][q] = {elements={}}
+            
+            myInfo[b][q]["read"] = {} 
+            for t=1,self.queueDecoders[q].R:size(1) do
+                if self.queueDecoders[q].R[t][b] == 0 then break end
+                myInfo[b][q].read[t] = self.queueDecoders[q].R[t][b]
+            end
+            myInfo[b][q]["forget"] = {}
+            for t=1,self.queueDecoders[q].F:size(1) do
+                if self.queueDecoders[q].F[t][b] == 0 then break end
+                myInfo[b][q].forget[t] = self.queueDecoders[q].F[t][b]
+            end
+            inputIds = encIn[b]:index(1, indicesInverted[q]:t()[b])
+            for i=1,inputIds:size(1) do
+                if inputIds[i] == 0 then break end
+                local att = {}
+                for t=1,#myInfo[b][q].read do
+                    att[t] = self.queueDecoders[q].P[t][i][b]
+                end
+                myInfo[b][q]["elements"][i] = {
+                    id=inputIds[i],
+                    attention=att}
+                
+            
+            --for t=1,1 do
+                --print(self.queueDecoders[q].P[t]:t()[b])
+            end
+        end
+    end
+    return myInfo
+end
 
 
