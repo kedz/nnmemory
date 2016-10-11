@@ -60,7 +60,7 @@ function PriorityQueueTransducer:buildNetwork()
     end
     
     self.priorityQueue = nn.Sequential():add(
-        nn.ConcatTable())
+        nn.ParallelTable())
         
     local decoders = nn.ParallelTable()
     for i=1,numQueues do
@@ -74,6 +74,12 @@ function PriorityQueueTransducer:buildNetwork()
     decoders = nn.Sequential():add(decoders):add(nn.CAddTable())
     self.priorityQueue:add(
         nn.ConcatTable():add(priorities):add(decoders))
+
+    self.ControllerLinearLayer = 
+        nn.Sequencer(
+            nn.MaskZero(
+                nn.Linear(dimSize, self.numQueues, false), 1))
+
 
     self.priorityQueueLinearLayer = 
         nn.Sequencer(
@@ -97,10 +103,50 @@ function PriorityQueueTransducer:buildNetwork()
 
     self.priorityQueueNet = nn.Sequential()
     self.priorityQueueNet:add(self.coupledLSTM)
+
+    local controller = nn.Sequential():add(
+        nn.ConcatTable():add(
+            nn.Sequential():add(
+                nn.SelectTable(2)):add(
+                self.ControllerLinearLayer):add(
+                nn.Sequencer(nn.MaskZero(nn.SoftMax(),1))):add(
+                nn.Unsqueeze(4))):add(
+            nn.Sequential():add(nn.SelectTable(2)):add(nn.Unsqueeze(3))))
+    controller:add(
+        nn.ParallelTable():add(nn.SplitTable(1)):add(nn.SplitTable(1)))
+    controller:add(
+        nn.ZipTable())
+    controller:add(
+        nn.Sequencer(nn.MM()))
+    controller:add(
+        nn.MapTable(
+            nn.Sequential():add(nn.Unsqueeze(1)):add(nn.SplitTable(3))))
+    controller:add(
+        nn.ZipTable())
+    controller:add(
+        nn.MapTable(nn.JoinTable(1)))
+
     self.priorityQueueNet:add(
         nn.ConcatTable():add(
-            self.priorityQueue):add(
+            nn.Sequential():add(
+                nn.ConcatTable():add(
+                    nn.Sequential():add(
+                        nn.SelectTable(1)):add(
+                        nn.Replicate(self.numQueues)):add(
+                        nn.SplitTable(1))):add(
+                    controller)):add(
+                nn.ZipTable())):add(
             nn.SelectTable(2)))
+
+    self.priorityQueueNet:add(
+        nn.ParallelTable():add(
+            self.priorityQueue):add(
+            nn.Identity()))
+--            self.priorityQueue):add(nn.Identity()))
+--    self.priorityQueueNet:add(
+--        nn.ConcatTable():add(
+--            self.priorityQueue):add(
+--            nn.SelectTable(2)))
     self.priorityQueueNet:add(
         nn.ConcatTable():add(
             nn.Sequential():add(nn.SelectTable(1)):add(nn.SelectTable(1))):add(
