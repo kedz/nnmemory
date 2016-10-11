@@ -42,7 +42,7 @@ function LinearAssociativeMemoryWriterP:updateOutput(input)
         self.mask = torch.eq(M, 0)
     end
 
-    if self.prevMaxSteps ~= maxSteps then
+    if self.prevMaxSteps ~= maxSteps or self.prevBatchSize ~= batchSize then
         local maskCurrentTime = torch.eye(maxSteps)
         maskCurrentTime = torch.ne(
             maskCurrentTime:view(maxSteps,1,maxSteps,1):expand(
@@ -102,8 +102,9 @@ function LinearAssociativeMemoryWriterP:updateOutput(input)
             nn.MM())
 
         self.net:type(self:type())
-        self.prevMaxSteps = maxSteps
     end
+    self.prevMaxSteps = maxSteps
+    self.prevBatchSize = batchSize
 
     self.output = self.net:forward(
         {{{M, Winp}, {{M, Wmem}, self.maskCurrentTime}}, Wattn})
