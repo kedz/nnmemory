@@ -25,6 +25,17 @@ function data.readVocab(path, includeSpecial)
 
 end
 
+function data.idsToString(vocab, ids)
+    d = {}
+    for i=1,ids:size(1) do
+        if ids[i] ~= 0 then
+            table.insert(d, vocab.id2token[ids[i]])
+        end
+    end
+    return table.concat(d, " ")
+end
+
+
 function data.readData(path, inputVocab, outputVocab, readTopics)
     
     local maxInputSize = 0
