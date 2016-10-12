@@ -3,7 +3,7 @@ local PriorityQueueTransducer =
 
 function PriorityQueueTransducer:__init(inputVocabSize, outputVocabSize, 
         dimSize, numQueues, numLayers, optimState, readBiasInit, 
-        forgetBiasInit, intraQueuePenalty)
+        forgetBiasInit, interQueuePenaltyWeight, intraQueuePenaltyWeight)
     self.inputVocabSize = inputVocabSize
     self.outputVocabSize = outputVocabSize
     self.dimSize = dimSize
@@ -12,7 +12,8 @@ function PriorityQueueTransducer:__init(inputVocabSize, outputVocabSize,
     self.optimState = optimState
     self.readBiasInit = readBiasInit
     self.forgetBiasInit = forgetBiasInit
-    self.intraQueuePenaltyWeight = intraQueuePenalty
+    self.interQueuePenaltyWeight = interQueuePenaltyWeight
+    self.intraQueuePenaltyWeight = intraQueuePenaltyWeight
 
     self:buildNetwork()
 end
@@ -25,6 +26,7 @@ function PriorityQueueTransducer:buildNetwork()
     local numQueues = self.numQueues
     local readBiasInit = self.readBiasInit
     local forgetBiasInit = self.forgetBiasInit
+    local interQueuePenaltyWeight = self.interQueuePenaltyWeight
     local intraQueuePenaltyWeight = self.intraQueuePenaltyWeight
 
     self.encoderLookup = nn.LookupTableMaskZero(inputVocabSize, dimSize)
@@ -48,7 +50,10 @@ function PriorityQueueTransducer:buildNetwork()
 
         local priorityQueueEnc = nn.Sequential():add(
             nn.ParallelTable():add(
-                nn.Sequential():add(memoryCell):add(nn.SortOnKey(true))):add(
+                nn.Sequential():add(memoryCell):add(
+                    nn.ConcatTable():add(
+                        nn.SelectTable(2)):add( 
+                        nn.SortOnKey(true)))):add(
                 nn.Identity())):add(
             nn.FlattenTable()) 
         self.queueEncoders[i] = priorityQueueEnc
@@ -65,11 +70,14 @@ function PriorityQueueTransducer:buildNetwork()
     local decoders = nn.ParallelTable()
     for i=1,numQueues do
         self.priorityQueue:get(1):add(self.queueEncoders[i])
-        decoders:add(self.queueDecoders[i])
+        decoders:add(
+            nn.Sequential():add(
+                nn.NarrowTable(2,3)):add(
+                self.queueDecoders[i]))
     end
     local priorities = nn.ParallelTable()
     for q=1,self.numQueues do
-        priorities:add(nn.SelectTable(2))
+        priorities:add(nn.SelectTable(1))
     end
     decoders = nn.Sequential():add(decoders):add(nn.CAddTable())
     self.priorityQueue:add(
@@ -128,10 +136,16 @@ function PriorityQueueTransducer:buildNetwork()
                 nn.SelectTable(1)):add(
                 nn.MapTable():add(nn.Unsqueeze(1))):add(
                 nn.JoinTable(1)):add(
-                nn.Transpose({3,2,1}))):add(
-            nn.SelectTable(2)))
-            
+                nn.Transpose({3,2}))):add(
+            nn.SelectTable(2)))            
 
+    self.priorityQueueNet:add(
+        nn.ConcatTable():add(
+            nn.Sequential():add(
+                nn.SelectTable(1)):add(
+                nn.Transpose({3,1}))):add(
+            nn.SelectTable(1)):add(
+            nn.SelectTable(2)))
 
          
 
@@ -141,12 +155,14 @@ function PriorityQueueTransducer:buildNetwork()
 
     self.nllPenalty = nn.SequencerCriterion(
         nn.MaskZeroCriterion(nn.ClassNLLCriterion(nil, false),1))
-    self.intraQueuePenalty = nn.SequencerCriterion(
-        nn.GMeanCriterion(intraQueuePenaltyWeight))
+    self.interQueuePenalty = nn.SequencerCriterion(nn.GMeanCriterion(1.0))
+    self.intraQueuePenalty = nn.SequencerCriterion(nn.GMeanCriterion(1.0))
     self.criterion = nn.ParallelCriterion():add(
-        self.intraQueuePenalty):add(
+        self.interQueuePenalty, interQueuePenaltyWeight):add(
+        self.intraQueuePenalty, intraQueuePenaltyWeight):add(
         self.nllPenalty, 1.0)
 
+    self.interQueuePenaltyTarget = torch.Tensor()
     self.intraQueuePenaltyTarget = torch.Tensor()
 
 end
@@ -158,6 +174,7 @@ function PriorityQueueTransducer:cuda()
     local params, gradParams = self.priorityQueueNet:getParameters()
     self.params = params
     self.gradParams = gradParams
+    self.interQueuePenaltyTarget = self.interQueuePenaltyTarget:cuda()
     self.intraQueuePenaltyTarget = self.intraQueuePenaltyTarget:cuda()
     
     return self
@@ -166,11 +183,12 @@ end
 function PriorityQueueTransducer:lossModel(model, encIn, decIn, decOut)
     local input = {encIn:t(), decIn:t()}
     local output = {
+        self.interQueuePenaltyTarget:resize(encIn:size(2), encIn:size(1)),
         self.intraQueuePenaltyTarget:resize(self.numQueues, encIn:size(1)),
         decOut:t()}
     local outputPred = model:forward(input)
     local err = self.criterion:forward(outputPred, output)
-    return self.criterion.criterions[2].output
+    return self.criterion.criterions[3].output
 end
 
 function PriorityQueueTransducer:lossCoupledLSTM(encIn, decIn, decOut)
@@ -185,6 +203,7 @@ end
 function PriorityQueueTransducer:trainModel(model, encIn, decIn, decOut)
     local input = {encIn:t(), decIn:t()}
     local output = {
+        self.interQueuePenaltyTarget:resize(encIn:size(2), encIn:size(1)),
         self.intraQueuePenaltyTarget:resize(self.numQueues, encIn:size(1)),
         decOut:t()}
 
@@ -197,7 +216,7 @@ function PriorityQueueTransducer:trainModel(model, encIn, decIn, decOut)
         return err, self.gradParams
     end
     local _, loss = optim.adam(feval, self.params, self.optimState)
-    return self.criterion.criterions[2].output
+    return self.criterion.criterions[3].output
 end
 
 
@@ -212,7 +231,6 @@ end
 
 
 function PriorityQueueTransducer:info(encIn, decIn, decOut)
-    print(encIn, decIn, decOut)
     local input = {encIn:t(), decIn:t()}
     local output = decOut:t()
     self.priorityQueueNet:clearState() 
