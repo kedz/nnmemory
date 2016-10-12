@@ -237,7 +237,7 @@ function PriorityQueueTransducer:info(encIn, decIn, decOut)
     local outputPred = self.priorityQueueNet:forward(input) 
     local indicesInverted = {}
     for q=1,self.numQueues do
-        local indS = self.queueEncoders[q]:get(1):get(1):get(2).indices_sorted
+        local indS = self.queueEncoders[q]:get(1):get(1):get(2):get(2).indices_sorted
         local _, indInv = torch.sort(indS, 1)
         indicesInverted[q] = indS
     end
