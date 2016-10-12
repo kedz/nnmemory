@@ -13,8 +13,8 @@ function GMeanCriterion:__init(weight)
                 nn.Sum(2))):add(
             nn.Identity())):add(
         nn.CMulTable())
-        
-    self.mod:add(nn.Exp())
+    self.mod:add(nn.Unsqueeze(2))  
+    self.mod:add(nn.MaskZero(nn.Exp(), 1))
     self.mod:add(nn.Sum())
     self.mod:add(nn.MulConstant(weight))
 end
@@ -23,7 +23,8 @@ function GMeanCriterion:updateOutput(input, target)
     local mask = torch.eq(input, 0)
     input[mask] = 1.0
     local denom = (input:size(2) - mask:typeAs(input):sum(2)):squeeze():pow(-1)
-    self.output = self.mod:forward({input, denom})
+    denom[torch.eq(denom, math.huge)] = 1
+    self.output = self.mod:forward({input, denom})[1]
     input[mask] = 0.0
   
     self.mask = mask 
