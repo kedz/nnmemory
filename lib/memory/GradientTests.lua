@@ -7,6 +7,108 @@ local jac
 local memtest = torch.TestSuite()
 
 
+function memtest.PriorityQueueSimpleDecoderV2()
+    local dimSize = 5
+    local batchSize = 3
+    local encoderSize = 4
+    local decoderSize = 10
+    local M = torch.rand(encoderSize, batchSize, dimSize)
+    local Y = torch.rand(decoderSize, batchSize, dimSize)
+    local pi = torch.rand(encoderSize, batchSize)
+    local Z = torch.exp(pi, pi):sum(1):expand(encoderSize, batchSize)
+    torch.cdiv(pi, pi, Z)
+    pi, _ = torch.sort(pi, 1, true)
+
+    local qdec = nn.PriorityQueueSimpleDecoderV2(dimSize)
+    local params, gradParams = qdec:getParameters()
+
+    local netM = {} 
+    function netM:forward(M)
+        self.output = qdec:forward({M, pi, Y})
+        return self.output
+    end
+    function netM:zeroGradParameters()
+        qdec:zeroGradParameters()
+    end
+    function netM:backward(M, gradOutput)
+        return qdec:backward({M, pi,Y}, gradOutput)[1]
+    end
+    function netM:updateGradInput(M, gradOutput)
+        return qdec:updateGradInput({M, pi, Y}, gradOutput)[1]
+    end
+    function netM:accGradParameters(M, gradOutput) end
+
+    local err = nn.Jacobian.testJacobian(netM, M)
+    mytester:assertlt(
+        err, precision, 
+        "PriorityQueueDecoder memory gradient not computed correctly.")
+ 
+    qdec:zeroGradParameters()
+    local errParams = nn.Jacobian.testJacobianParameters(
+        netM, M, params, gradParams)
+    mytester:assertle(
+        errParams, precision, 
+        "PriorityQueueDecoder weight gradient not computed correctly.")
+
+    local netPi = {} 
+    function netPi:forward(pi)
+        self.output = qdec:forward({M, pi, Y})
+        return self.output
+    end
+    function netPi:zeroGradParameters()
+        qdec:zeroGradParameters()
+    end
+    function netPi:backward(pi, gradOutput)
+        return qdec:backward({M, pi,Y}, gradOutput)[2]
+    end
+    function netPi:updateGradInput(pi, gradOutput)
+        return qdec:updateGradInput({M, pi, Y}, gradOutput)[2]
+    end
+    function netPi:accGradParameters(pi, gradOutput) end
+
+    qdec:zeroGradParameters()
+    local err = nn.Jacobian.testJacobian(netPi, pi, 0, 1)
+    mytester:assertlt(
+        err, precision, 
+        "PriorityQueueDecoder pi gradient not computed correctly.")
+ 
+    qdec:zeroGradParameters()
+    local errParams = nn.Jacobian.testJacobianParameters(
+        netPi, pi, params, gradParams)
+    mytester:assertlt(
+        errParams, precision, 
+        "PriorityQueueDecoder weight gradient not computed correctly.")
+ 
+    local netY = {} 
+    function netY:forward(Y)
+        self.output = qdec:forward({M, pi, Y})
+        return self.output
+    end
+    function netY:zeroGradParameters()
+        qdec:zeroGradParameters()
+    end
+    function netY:backward(Y, gradOutput)
+        return qdec:backward({M, pi,Y}, gradOutput)[3]
+    end
+    function netY:updateGradInput(Y, gradOutput)
+        return qdec:updateGradInput({M, pi, Y}, gradOutput)[3]
+    end
+    function netY:accGradParameters(Y, gradOutput) end
+
+    qdec:zeroGradParameters()
+    local err = nn.Jacobian.testJacobian(netY, Y)
+    mytester:assertlt(
+        err, precision, 
+        "PriorityQueueDecoderV2 Y gradient not computed correctly.")
+
+    qdec:zeroGradParameters()
+    local errParams = nn.Jacobian.testJacobianParameters(
+        netY, Y, params, gradParams)
+    mytester:assertlt(errParams, precision, 
+        "PriorityQueueDecoderV2 parameter gradient not computed correctly.")
+
+end
+
 function memtest.LinearAssociativeMemoryWriterP()
 
     local dimSize = 10

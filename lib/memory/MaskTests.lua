@@ -5,6 +5,100 @@ local jac
 
 local memtest = torch.TestSuite()
 
+
+function memtest.PriorityQueueSimpleDecoderV2()
+    local dimSize = 5
+    local batchSize = 2
+    local maxSteps = 3
+
+    local Xmask = torch.rand(maxSteps, batchSize, dimSize)
+    local Ymask = torch.Tensor(4, batchSize, dimSize):zero()
+    local X = torch.rand(2, batchSize, dimSize)
+    local Y = torch.rand(2, batchSize, dimSize)
+    Ymask[{{1,2},{},{}}] = Y
+
+    Xmask[2][1]:fill(0)
+    Xmask[3][2]:fill(0)
+    X[1]:copy(Xmask[1])
+    X[2][1] = Xmask[3][1]
+    X[2][2] = Xmask[2][2]
+
+    piMask = torch.Tensor(maxSteps, batchSize):fill(0)
+    pi = torch.rand(2, batchSize)
+    
+    Z = torch.sum(torch.exp(pi), 1):expand(2,batchSize)
+    pi = torch.cdiv(torch.exp(pi) , Z)
+    piMask[{{1},{}}] = pi[{{1},{}}]
+    piMask[{{3},{1}}] = pi[{{2},{1}}]
+    piMask[{{2},{2}}] = pi[{{2},{2}}]
+    gradOutputMask = torch.rand(4, batchSize, dimSize)
+    gradOutput = gradOutputMask[{{1,2},{},{}}]
+
+    netMask = nn.PriorityQueueSimpleDecoderV2(dimSize):maskZero()
+    net = nn.PriorityQueueSimpleDecoderV2(dimSize)
+    local params, gradParams = net:getParameters()
+    local paramsMasked, gradParamsMasked = netMask:getParameters()
+    params:copy(paramsMasked)
+    net:zeroGradParameters()
+    netMask:zeroGradParameters()
+
+    local outputMasked = netMask:forward({Xmask, piMask, Ymask})
+    local output = net:forward({X, pi, Y})
+    local gradInputMasked = netMask:backward(
+        {Xmask, piMask, Ymask}, gradOutputMask)
+    local gradInput = net:backward({X, pi, Y}, gradOutput)
+
+    mytester:assertTensorEq(output, outputMasked[{{1,2},{},{}}])
+    mytester:assertTensorEq(
+        outputMasked:select(1,3), torch.Tensor(batchSize, dimSize):zero())
+
+    mytester:assertTensorEq(gradInput[3], gradInputMasked[3][{{1,2},{},{}}])
+    mytester:assertTensorEq(
+        torch.Tensor(batchSize,dimSize):zero(), 
+        gradInputMasked[3]:select(1,3))
+    mytester:assertTensorEq(
+        torch.Tensor(batchSize,dimSize):zero(), 
+        gradInputMasked[3]:select(1,4))
+
+    mytester:assertTensorEq(
+        gradInput[1][{{1},{},{}}], 
+        gradInputMasked[1][{{1},{},{}}])
+
+    mytester:assertTensorEq(
+        gradInput[1][{{2},{1},{}}], 
+        gradInputMasked[1][{{3},{1},{}}])
+    mytester:assertTensorEq(
+        gradInput[1][{{2},{2},{}}], 
+        gradInputMasked[1][{{2},{2},{}}])
+    mytester:assertTensorEq(
+        torch.Tensor(1,1, dimSize):zero(), 
+        gradInputMasked[1][{{2},{1},{}}])
+    mytester:assertTensorEq(
+        torch.Tensor(1,1, dimSize):zero(), 
+        gradInputMasked[1][{{3},{2},{}}])
+    
+    mytester:assertTensorEq(
+        gradInput[2][{{1},{}}], 
+        gradInputMasked[2][{{1},{}}])
+    mytester:assertTensorEq(
+        gradInput[2][{{2},{1}}], 
+        gradInputMasked[2][{{3},{1}}])
+    mytester:assertTensorEq(
+        gradInput[2][{{2},{2}}], 
+        gradInputMasked[2][{{2},{2}}])
+    mytester:assertTensorEq(
+        torch.Tensor(1,1):zero(), 
+        gradInputMasked[2][{{2},{1}}])
+    mytester:assertTensorEq(
+        torch.Tensor(1,1):zero(), 
+        gradInputMasked[2][{{3},{2}}])
+
+    mytester:assertTensorEq(gradParams, gradParamsMasked)
+
+end
+
+
+
 function memtest.PriorityQueueSimpleDecoder()
     local dimSize = 5
     local batchSize = 2
