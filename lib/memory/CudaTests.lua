@@ -49,12 +49,13 @@ end
 
 local function testBackward(protoModule, input, maxError)
     protoModule:zeroGradParameters()
+    local cudaMod = protoModule:clone():cuda()
+
     local params, gradParams = protoModule:getParameters()
     local output = protoModule:forward(input)
     local outputGrad = makeGrad(output)
     local inputGrad = protoModule:backward(input, outputGrad)   
  
-    local cudaMod = protoModule:clone():cuda()
     cudaMod:zeroGradParameters()
     local cudaParams, cudaGradParams = cudaMod:getParameters()
     local cudaInput = makeCudaInput(input)
@@ -80,6 +81,27 @@ local function testBackward(protoModule, input, maxError)
             'error on parameters (backward) ')
     end
 end
+
+
+function cumemtest.PriorityQueueSimpleDecoderV2()
+    local dimSize = 10
+    local batchSize = 3
+    local encoderSize = 4
+    local decoderSize = 5
+    local M = torch.rand(encoderSize, batchSize, dimSize)
+    local Y = torch.rand(decoderSize, batchSize, dimSize)
+    local pi = torch.rand(encoderSize, batchSize)
+    local Z = torch.exp(pi, pi):sum(1):expand(encoderSize, batchSize)
+    torch.cdiv(pi, pi, Z)
+    pi, _ = torch.sort(pi, 1, true)
+
+    local qdec = nn.PriorityQueueSimpleDecoderV2(dimSize)
+    testForward(qdec, {M, pi, Y}, precision_forward)
+    qdec.prevQueueSize = 0
+    testBackward(qdec, {M, pi, Y}, precision_backward)
+
+end
+
 
 function cumemtest.PriorityQueueSimpleDecoder()
     local dimSize = 10

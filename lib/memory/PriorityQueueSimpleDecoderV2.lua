@@ -269,17 +269,16 @@ function PriorityQueueSimpleDecoderV2:updateGradInput(input, gradOutput)
     local phicum = self.phicum
 
     if self.prevQueueSize < queueSize then
-       
-        if string.match(Y:type(), "Cuda") then
-            self.lt_mask_base = self.lt_mask_base:type("torch.CudaByteTensor")
-            self.di_mask_base = self.di_mask_base:type("torch.CudaByteTensor")
-        else
-            self.lt_mask_base = self.lt_mask_base:type("torch.ByteTensor")
-            self.di_mask_base = self.di_mask_base:type("torch.ByteTensor")
-        end
-
+        self.lt_mask_base = self.lt_mask_base:type("torch.ByteTensor")
         self.lt_mask_base:resize(queueSize, queueSize):fill(1.0)
         torch.tril(self.lt_mask_base, self.lt_mask_base, -1)
+
+        if string.match(Y:type(), "Cuda") then
+            self.di_mask_base = self.di_mask_base:type("torch.CudaByteTensor")
+            self.lt_mask_base = self.lt_mask_base:type("torch.CudaByteTensor")
+        else
+            self.di_mask_base = self.di_mask_base:type("torch.ByteTensor")
+        end
 
         self.di_mask_base:resize(queueSize, queueSize):zero()
 
